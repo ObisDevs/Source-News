@@ -1,7 +1,8 @@
 import { supabaseAdmin } from '@/lib/supabase/client';
-import { formatDistanceToNow, format, subDays, startOfDay, endOfDay } from 'date-fns';
+import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import Link from 'next/link';
 import { TimelineNav } from '@/components/timeline-nav';
+import { VerticalTimelineCard } from '@/components/vertical-timeline-card';
 
 export const revalidate = 900;
 
@@ -46,10 +47,10 @@ export default async function TimelinePage({
   };
 
   const timeBlocks = [
-    { label: '0:00 - 6:00', order: 0, name: 'Night', color: 'bg-gray-900', borderColor: 'border-gray-900', bgSection: 'bg-gray-900', textColor: 'text-white' },
-    { label: '6:00 - 12:00', order: 1, name: 'Morning', color: 'bg-blue-500', borderColor: 'border-blue-500', bgSection: 'bg-blue-50 dark:bg-blue-950/30', textColor: 'text-white' },
-    { label: '12:00 - 18:00', order: 2, name: 'Afternoon', color: 'bg-yellow-400', borderColor: 'border-yellow-400', bgSection: 'bg-yellow-50 dark:bg-yellow-950/20', textColor: 'text-gray-900' },
-    { label: '18:00 - 24:00', order: 3, name: 'Evening', color: 'bg-orange-500', borderColor: 'border-orange-500', bgSection: 'bg-orange-50 dark:bg-orange-950/30', textColor: 'text-white' },
+    { label: '0:00 - 6:00', order: 0, name: 'Night', color: 'bg-gray-900', borderColor: 'border-gray-900', bgSection: 'bg-gradient-to-b from-indigo-100 to-purple-200 dark:from-gray-900 dark:to-indigo-950', textColor: 'text-white' },
+    { label: '6:00 - 12:00', order: 1, name: 'Morning', color: 'bg-blue-500', borderColor: 'border-blue-500', bgSection: 'bg-gradient-to-b from-yellow-100 to-orange-200 dark:from-blue-950 dark:to-indigo-900', textColor: 'text-white' },
+    { label: '12:00 - 18:00', order: 2, name: 'Afternoon', color: 'bg-yellow-400', borderColor: 'border-yellow-400', bgSection: 'bg-gradient-to-b from-blue-100 to-cyan-200 dark:from-yellow-950 dark:to-orange-900', textColor: 'text-gray-900' },
+    { label: '18:00 - 24:00', order: 3, name: 'Evening', color: 'bg-orange-500', borderColor: 'border-orange-500', bgSection: 'bg-gradient-to-b from-orange-100 to-red-200 dark:from-orange-950 dark:to-red-950', textColor: 'text-white' },
   ];
 
   const currentHour = new Date().getHours();
@@ -118,53 +119,57 @@ export default async function TimelinePage({
                 return b.order - a.order;
               })
               .map((timeBlock: any) => (
-                <div key={timeBlock.label} id={`block-${timeBlock.order}`} className={`relative scroll-mt-24 ${timeBlock.bgSection} py-8`}>
+                <div key={timeBlock.label} id={`block-${timeBlock.order}`} className={`relative scroll-mt-24 ${timeBlock.bgSection} py-8 transition-all duration-500 hover:shadow-inner`}>
                   <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="sticky top-20 z-10 py-3 mb-6" style={{ backgroundColor: 'inherit' }}>
+                    <div className="sticky top-20 z-10 py-3 mb-6 group" style={{ backgroundColor: 'inherit' }}>
                       <div className="flex items-center gap-4">
-                        <div className={`px-6 py-3 rounded-lg ${timeBlock.color} ${timeBlock.textColor} font-bold text-lg shadow-md`}>
+                        <div className={`px-6 py-3 rounded-lg ${timeBlock.color} ${timeBlock.textColor} font-bold text-lg shadow-md transition-all duration-300 hover:scale-105 hover:shadow-xl`}>
                           {timeBlock.label}
                         </div>
                         <div className="flex-1 relative">
-                          <div className={`h-1 ${timeBlock.color} rounded-full`}></div>
-                          <div className={`absolute -top-6 left-0 text-sm font-semibold ${timeBlock.color.replace('bg-', 'text-')}`}>
+                          <div className={`h-1 ${timeBlock.color} rounded-full transition-all duration-500 group-hover:h-2 group-hover:shadow-lg`}>
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                          </div>
+                          <div className={`absolute -top-6 left-0 text-sm font-semibold ${timeBlock.color.replace('bg-', 'text-')} transition-all duration-300 group-hover:scale-110`}>
                             {timeBlock.name}
                           </div>
                         </div>
                       </div>
                     </div>
 
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {timeBlock.stories.map((story: any) => {
-                      const imageUrl = story.metadata?.image || story.metadata?.og_image;
-                      return (
-                        <Link
-                          key={story.id}
-                          href={`/story/${story.id}`}
-                          className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden hover:shadow-lg transition-shadow"
-                        >
-                          {imageUrl && (
-                            <img src={imageUrl} alt="" className="w-full h-40 object-cover" />
-                          )}
-                          <div className="p-4">
-                            <h3 className="font-semibold mb-2 line-clamp-2 text-gray-900 dark:text-gray-100">
-                              {story.title}
-                            </h3>
-                            <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
-                              <span className="font-medium text-gray-700 dark:text-gray-300">
-                                {story.sources?.name}
-                              </span>
-                              <span>{formatDistanceToNow(new Date(story.published_at), { addSuffix: true })}</span>
-                            </div>
-                            {story.category && (
-                              <span className="inline-block mt-2 px-2 py-1 text-xs bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
-                                {story.category}
-                              </span>
-                            )}
-                          </div>
-                        </Link>
-                      );
-                    })}
+                    <div className="relative max-w-6xl mx-auto">
+                      {/* Central vertical line */}
+                      <div className="absolute left-1/2 transform -translate-x-1/2 w-0.5 bg-blue-600 h-full transition-all duration-300 hover:w-1 hover:bg-blue-500 hover:shadow-lg hover:shadow-blue-500/50">
+                        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-blue-300/50 to-transparent animate-pulse opacity-0 hover:opacity-100 transition-opacity duration-300"></div>
+                      </div>
+                      
+                      <div className="relative">
+                        <div className="relative">
+                          {timeBlock.stories
+                            .sort((a: any, b: any) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime())
+                            .map((story: any, idx: number) => {
+                              const position = idx % 3;
+                              let className = 'absolute w-80';
+                              let topOffset = Math.floor(idx / 3) * 220 + (position * 60);
+                              
+                              if (position === 0) className += ' left-0';
+                              else if (position === 1) className += ' left-1/2 transform -translate-x-1/2';
+                              else className += ' right-0';
+                              
+                              return (
+                                <div key={story.id} className={className} style={{ top: `${topOffset}px` }}>
+                                  <VerticalTimelineCard 
+                                    story={story} 
+                                    index={idx} 
+                                    isLeft={position !== 2}
+                                    isCenter={position === 1}
+                                  />
+                                </div>
+                              );
+                            })}
+                        </div>
+                        <div style={{ height: `${Math.ceil(timeBlock.stories.length / 3) * 220 + 120}px` }}></div>
+                      </div>
                     </div>
                   </div>
                 </div>

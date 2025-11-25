@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { NewsCarousel } from '@/components/news-carousel';
 import { AIHeadlineSummary } from '@/components/ai-headline-summary';
 import { StoryImage } from '@/components/story-image';
+import { LoadMoreButton } from '@/components/load-more-button';
 
 export const revalidate = 0;
 export const dynamic = 'force-dynamic';
@@ -252,6 +253,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               </div>
             );
           })}
+          
+          <LoadMoreButton category={category} initialStories={stories} />
         </div>
         
         {stories.length === 0 && (
