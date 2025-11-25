@@ -4,6 +4,8 @@
 /node_modules
 /.pnp
 .pnp.*
+.env.local
+.env # ignore all env files, if you need to commit one, explicitly add it to the repo
 .yarn/*
 !.yarn/patches
 !.yarn/plugins
