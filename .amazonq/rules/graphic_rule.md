@@ -1,0 +1,1 @@
+Never use mobile Emoji in the project, if there is any modify it asap. use minimalistic and color red and blue when doing sentiments.
