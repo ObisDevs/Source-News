@@ -47,24 +47,31 @@ SELECT * FROM cron.job;
 
 ## Option 2: Vercel Cron (Already Configured)
 
-Your `vercel.json` already has cron jobs configured:
+Your `vercel.json` already has cron jobs configured. NOTE: if you're on the Vercel **Hobby** plan, cron behavior is restricted — Hobby only guarantees cron invocations once per day and timing may vary (e.g. a job scheduled at `0 1 * * *` may run anywhere between 01:00 and 01:59). Hobby accounts are limited to 2 cron jobs per account that run once daily.
+
+Example `vercel.json` configured for Hobby (daily at 1:00):
 
 ```json
 {
   "crons": [
     {
       "path": "/api/worker/ingest",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 1 * * *"
     },
     {
       "path": "/api/worker/process",
-      "schedule": "*/10 * * * *"
+      "schedule": "0 1 * * *"
     }
   ]
 }
 ```
 
-**This will work automatically when deployed to Vercel.**
+**If you are on Hobby and need more frequent scheduling (for example every 15 minutes), use one of these alternatives:**
+
+- Use Supabase `pg_cron` (runs inside Supabase and is not subject to Vercel Hobby cron limits). See Option 1 above.
+- Use an external scheduler such as GitHub Actions (recommended). Add a small workflow that POSTs to your `/api/worker/ingest` and `/api/worker/process` endpoints on the schedule you need (example workflow is in the repo suggestions earlier).
+
+If you keep Vercel crons on Hobby, set them to daily and accept the timing variability.
 
 ## Option 3: Manual Trigger on Page Load (Quick Fix)
 
