@@ -3,6 +3,10 @@
 ## Option 1: Supabase pg_cron (Recommended)
 
 Run this SQL in Supabase SQL Editor to set up automatic ingestion:
+1
+1
+1
+1
 
 ```sql
 -- Enable pg_cron extension
