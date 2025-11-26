@@ -23,11 +23,25 @@ export function LoadMoreButton({ category, initialStories }: LoadMoreButtonProps
     
     try {
       const lastStory = stories[stories.length - 1];
-      const prevDate = new Date(lastStory.published_at);
-      prevDate.setDate(prevDate.getDate() - 1);
-      
-      const startOfDay = new Date(prevDate.setHours(0, 0, 0, 0));
-      const endOfDay = new Date(prevDate.setHours(23, 59, 59, 999));
+
+      // Determine a safe pivot date to page older stories from.
+      // Prefer `published_at`, fall back to common alternatives, otherwise use now.
+      let pivotDate = new Date();
+      if (lastStory) {
+        const fallbackTimestamp =
+          lastStory.published_at ?? lastStory.inserted_at ?? lastStory.created_at ?? lastStory?.metadata?.published_at ?? null;
+
+        if (fallbackTimestamp) {
+          const parsed = new Date(fallbackTimestamp);
+          if (!isNaN(parsed.getTime())) pivotDate = parsed;
+        }
+      }
+
+      // Page one day earlier than the pivot date
+      pivotDate.setDate(pivotDate.getDate() - 1);
+
+      const startOfDay = new Date(pivotDate.setHours(0, 0, 0, 0));
+      const endOfDay = new Date(pivotDate.setHours(23, 59, 59, 999));
       
       let query = supabaseAdmin
         .from('stories_raw')
