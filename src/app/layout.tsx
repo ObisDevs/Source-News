@@ -22,8 +22,8 @@ export default function RootLayout({
           <AuthProvider>
             <Suspense fallback={<div />}> 
               <Header />
+              {children}
             </Suspense>
-            {children}
           </AuthProvider>
         </ThemeProvider>
       </body>
