@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import React, { Suspense } from 'react';
 import "./globals.css";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -19,7 +20,9 @@ export default function RootLayout({
       <body className="antialiased">
         <ThemeProvider>
           <AuthProvider>
-            <Header />
+            <Suspense fallback={<div />}> 
+              <Header />
+            </Suspense>
             {children}
           </AuthProvider>
         </ThemeProvider>
