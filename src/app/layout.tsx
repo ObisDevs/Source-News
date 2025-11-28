@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Header } from "@/components/header";
+import { Footer } from "@/components/footer";
 
 export const metadata: Metadata = {
   title: "Source News - Nigerian News Intelligence",
@@ -17,12 +18,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="antialiased">
+      <body className="antialiased flex flex-col min-h-screen">
         <ThemeProvider>
           <AuthProvider>
             <Suspense fallback={<div />}> 
               <Header />
-              {children}
+              <div className="flex-1">
+                {children}
+              </div>
+              <Footer />
             </Suspense>
           </AuthProvider>
         </ThemeProvider>

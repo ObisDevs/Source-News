@@ -3,6 +3,15 @@ import { supabaseAdmin } from '@/lib/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 import { StoryAIFeatures } from '@/components/story-ai-features';
 import { BookmarkButton } from '@/components/bookmark-button';
+import { AIExplainButton } from '@/components/ai-explain-button';
+import { SocialSentimentWidget } from '@/components/social-sentiment-widget';
+import { ShareButton } from '@/components/share-button';
+import { StoryReactions } from '@/components/story-reactions';
+import { CommentsSection } from '@/components/comments-section';
+import { FactCheckButton } from '@/components/fact-check-button';
+import { StoryTimeline } from '@/components/story-timeline';
+import { StoryComparison } from '@/components/story-comparison';
+import { QuickReactions } from '@/components/quick-reactions';
 import Link from 'next/link';
 import * as cheerio from 'cheerio';
 
@@ -74,9 +83,9 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
           Back to Home
         </Link>
         {/* Header with Image */}
-        <div className="mb-6 sm:mb-8 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden shadow-sm">
+        <div className="mb-6 sm:mb-8 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg shadow-sm">
           {imageUrl && (
-            <div className="relative w-full h-64 sm:h-96 bg-gray-200 dark:bg-gray-800">
+            <div className="relative w-full h-64 sm:h-96 bg-gray-200 dark:bg-gray-800 overflow-hidden rounded-t-lg">
               <img 
                 src={imageUrl} 
                 alt={story.title}
@@ -88,7 +97,15 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
           <div className="p-4 sm:p-6">
             <div className="flex items-start justify-between mb-4">
               <h1 className="text-2xl sm:text-3xl font-bold flex-1 text-gray-900 dark:text-gray-100">{story.title}</h1>
-              <BookmarkButton storyId={story.id} />
+              <div className="flex gap-2">
+                <FactCheckButton storyId={story.id} />
+                <ShareButton title={story.title} url={`/story/${story.id}`} />
+                <BookmarkButton storyId={story.id} />
+              </div>
+            </div>
+            
+            <div className="mb-4">
+              <QuickReactions storyId={story.id} />
             </div>
           
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
@@ -123,8 +140,40 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
           </Link>
         </div>
 
+        {/* Social Sentiment */}
+        <div className="mb-6 sm:mb-8">
+          <SocialSentimentWidget storyId={story.id} />
+        </div>
+
+        {/* Story Reactions */}
+        <div className="mb-6 sm:mb-8">
+          <StoryReactions storyId={story.id} />
+        </div>
+
+        {/* Story Comparison */}
+        {story.cluster_id && (
+          <div className="mb-6 sm:mb-8">
+            <StoryComparison clusterId={story.cluster_id} />
+          </div>
+        )}
+
+        {/* Story Timeline */}
+        {story.cluster_id && (
+          <div className="mb-6 sm:mb-8">
+            <StoryTimeline clusterId={story.cluster_id} />
+          </div>
+        )}
+
         {/* AI Features */}
         <StoryAIFeatures storyId={story.id} storyTitle={story.title} storyContent={story.content} />
+
+        {/* Comments Section */}
+        <div id="comments-section" className="mt-6 sm:mt-8">
+          <CommentsSection storyId={story.id} />
+        </div>
+
+        {/* Floating AI Button */}
+        <AIExplainButton storyId={story.id} />
 
         {/* Related Stories */}
         {relatedStories && relatedStories.length > 0 && (

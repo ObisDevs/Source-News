@@ -58,3 +58,81 @@ After running the script, check:
 
 ## Automatic Categorization
 All new stories ingested will be automatically categorized based on their title and content keywords.
+
+
+&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+
+
+in admin, injestion is showing undefined: it should show the number:
+
+Starting ingestion...
+✓ Ingested: undefined
+⊘ Skipped: undefined
+✗ Errors: undefined
+Ingestion complete!
+
+
+add a page in admin where admin can use to insert new source of news.
+
+ref of source table: 
+
+create table public.sources (
+  id uuid not null default gen_random_uuid (),
+  name text not null,
+  type text null,
+  url text null,
+  credibility_score integer null default 50,
+  bias_lean text null,
+  is_active boolean null default true,
+  license_status text null default 'pending'::text,
+  metadata jsonb null default '{}'::jsonb,
+  created_at timestamp with time zone null default now(),
+  updated_at timestamp with time zone null default now(),
+  constraint sources_pkey primary key (id),
+  constraint sources_bias_lean_check check (
+    (
+      bias_lean = any (
+        array[
+          'left'::text,
+          'centre'::text,
+          'right'::text,
+          'government'::text,
+          'independent'::text
+        ]
+      )
+    )
+  ),
+  constraint sources_credibility_score_check check (
+    (
+      (credibility_score >= 0)
+      and (credibility_score <= 100)
+    )
+  ),
+  constraint sources_license_status_check check (
+    (
+      license_status = any (
+        array[
+          'pending'::text,
+          'approved'::text,
+          'rejected'::text
+        ]
+      )
+    )
+  ),
+  constraint sources_type_check check (
+    (
+      type = any (
+        array[
+          'rss'::text,
+          'api'::text,
+          'twitter'::text,
+          'government'::text
+        ]
+      )
+    )
+  )
+) TABLESPACE pg_default;
+
+create trigger update_sources_updated_at BEFORE
+update on sources for EACH row
+execute FUNCTION update_updated_at_column ();

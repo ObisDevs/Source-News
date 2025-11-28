@@ -7,8 +7,10 @@ export function BookmarkButton({ storyId }: { storyId: string }) {
   const { user } = useAuth();
   const [bookmarked, setBookmarked] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     if (user) {
       checkBookmark();
     }
@@ -56,7 +58,7 @@ export function BookmarkButton({ storyId }: { storyId: string }) {
     }
   };
 
-  if (!user) return null;
+  if (!mounted || !user) return null;
 
   return (
     <button

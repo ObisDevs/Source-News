@@ -31,9 +31,9 @@ export function VerticalTimelineCard({ story, index, isLeft, isCenter }: Vertica
 
   return (
     <div className="relative group">
-      {/* Time and connector */}
+      {/* Time and connector - hidden on mobile */}
       {!isCenter && (
-        <div className={`absolute top-4 ${isLeft ? '-right-20' : '-left-20'} flex items-center ${isLeft ? 'flex-row-reverse' : 'flex-row'}`}>
+        <div className={`hidden md:flex absolute top-4 ${isLeft ? '-right-20' : '-left-20'} items-center ${isLeft ? 'flex-row-reverse' : 'flex-row'}`}>
           <div className={`text-xs font-sans text-gray-600 dark:text-gray-400 ${isLeft ? 'mr-3' : 'ml-3'}`}>
             {publishedTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
           </div>
@@ -43,10 +43,10 @@ export function VerticalTimelineCard({ story, index, isLeft, isCenter }: Vertica
 
       {/* Card */}
       <Link href={`/story/${story.id}`}>
-        <div className={`p-4 rounded-lg border ${biasColor} shadow-md hover:shadow-xl hover:scale-105 transition-all duration-300 group aspect-[7/4] bg-white dark:bg-gray-800 mb-4 transform hover:-translate-y-2 animate-fade-in-up`} style={{ animationDelay: `${index * 100}ms` }}>
+        <div className={`p-4 rounded-lg border ${biasColor} shadow-md hover:shadow-xl md:hover:scale-105 transition-all duration-300 group md:aspect-[7/4] bg-white dark:bg-gray-800 mb-4 md:transform md:hover:-translate-y-2 animate-fade-in-up`} style={{ animationDelay: `${index * 100}ms` }}>
           <div className="h-full flex flex-col">
             {imageUrl && (
-              <div className="w-full h-20 rounded overflow-hidden mb-3">
+              <div className="w-full h-20 md:h-20 rounded overflow-hidden mb-3">
                 <img src={imageUrl} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
               </div>
             )}
@@ -56,16 +56,14 @@ export function VerticalTimelineCard({ story, index, isLeft, isCenter }: Vertica
                 {story.title}
               </h3>
               
-              <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
+              <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 flex-wrap gap-1">
                 <span className="font-medium truncate">{story.sources?.name}</span>
                 <div className="flex items-center gap-2">
-                  {isCenter && (
-                    <span className="text-xs font-sans text-blue-600 dark:text-blue-400 font-medium">
-                      {publishedTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  )}
+                  <span className={`text-xs font-sans text-blue-600 dark:text-blue-400 font-medium ${isCenter ? 'block' : 'block md:hidden'}`}>
+                    {publishedTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
                   {story.category && (
-                    <span className="px-2 py-1 bg-white/60 dark:bg-black/40 rounded-full">
+                    <span className="px-2 py-1 bg-white/60 dark:bg-black/40 rounded-full text-xs">
                       {story.category}
                     </span>
                   )}
