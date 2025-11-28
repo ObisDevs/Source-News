@@ -5,7 +5,7 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Html } from '@react-three/drei';
 import StoryNodes from './story-nodes';
 import { ConnectionLines } from './connection-lines';
-import ControlPanel from './control-panel';
+import { ControlPanel } from './control-panel';
 
 type Story = {
   id: string;
@@ -70,7 +70,7 @@ export default function Visualization() {
           <ambientLight intensity={0.6} />
           <pointLight position={[50, 50, 50]} />
           <Suspense fallback={null}>
-            <StoryNodes stories={stories} onSelect={setSelected} />
+            <StoryNodes stories={stories} onStoryClick={setSelected} />
             <ConnectionLines stories={stories} />
           </Suspense>
           <OrbitControls enablePan enableZoom enableRotate />
@@ -79,12 +79,11 @@ export default function Visualization() {
 
       <div className="w-80 p-4 border-l border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
         <ControlPanel
-          selected={selected}
-          stories={stories}
-          onCenter={(pos) => {
-            // TODO: implement camera centering via ref if needed
-            console.log('Center on', pos);
-          }}
+          viewMode="default"
+          onViewModeChange={() => {}}
+          selectedStory={selected}
+          onClose={() => setSelected(null)}
+          totalStories={stories.length}
         />
       </div>
     </div>

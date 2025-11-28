@@ -19,7 +19,7 @@ const categoryColors: Record<string, string> = {
   General: '#6b7280',
 };
 
-export default function StoryNodes({ stories, onSelect }: { stories: any[]; onSelect: (s: any) => void }) {
+export function StoryNodes({ stories, onStoryClick, viewMode }: { stories: any[]; onStoryClick: (s: any) => void; viewMode?: string }) {
   return (
     <group>
       {stories.map((story, index) => (
@@ -28,20 +28,24 @@ export default function StoryNodes({ stories, onSelect }: { stories: any[]; onSe
           story={story}
           index={index}
           totalStories={stories.length}
-          onClick={() => onSelect(story)}
+          onClick={() => onStoryClick(story)}
+          viewMode={viewMode}
         />
       ))}
     </group>
   );
 }
 
-function Node({ story, index, totalStories, onClick }: any) {
+export default StoryNodes;
+
+function Node({ story, index, totalStories, onClick, viewMode }: any) {
   const meshRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
 
   const position = calculatePosition(story, index, totalStories);
   const color = categoryColors[story.category] || categoryColors.General;
-  const size = 0.9 + ((story.metadata?.credibility_score || 50) / 100) * 0.8;
+  const baseSize = 0.9 + ((story.metadata?.credibility_score || 50) / 100) * 0.8;
+  const size = viewMode === 'clusters' ? baseSize * 0.7 : baseSize;
 
   useFrame((state) => {
     if (meshRef.current && hovered) {

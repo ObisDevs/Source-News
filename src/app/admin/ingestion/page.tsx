@@ -57,7 +57,7 @@ export default function IngestionMonitor() {
       const response = await fetch('/api/worker/ingest', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET || 'dev_secret_123'}`,
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET || process.env.CRON_SECRET || '8f3c2b9e1a7d5f4c6b8e2a9f3d5c7b1a'}`,
         },
       });
 
@@ -90,7 +90,7 @@ export default function IngestionMonitor() {
       const response = await fetch('/api/worker/process', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET || 'dev_secret_123'}`,
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET || process.env.CRON_SECRET || '8f3c2b9e1a7d5f4c6b8e2a9f3d5c7b1a'}`,
         },
       });
 
