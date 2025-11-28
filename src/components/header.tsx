@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { ThemeToggle } from './theme-toggle';
 import { SearchBar } from './search-bar';
 import { useAuth } from './auth/auth-provider';
+import { useState, useEffect } from 'react';
 
 const CATEGORIES = ['Politics', 'Business', 'Sports', 'Technology', 'Entertainment', 'Health', 'General'];
 
@@ -13,6 +14,11 @@ export function Header() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedCategory = searchParams.get('category') || 'All';
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <header className="sticky top-0 z-50 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
@@ -30,20 +36,22 @@ export function Header() {
               Timeline
             </Link>
             <ThemeToggle />
-            {user ? (
-              <Link
-                href="/dashboard"
-                className="px-3 py-1.5 text-xs sm:text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Dashboard
-              </Link>
-            ) : (
-              <Link
-                href="/auth/login"
-                className="px-3 py-1.5 text-xs sm:text-sm border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-900 dark:text-gray-100"
-              >
-                Login
-              </Link>
+            {mounted && (
+              user ? (
+                <Link
+                  href="/dashboard"
+                  className="px-3 py-1.5 text-xs sm:text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Dashboard
+                </Link>
+              ) : (
+                <Link
+                  href="/auth/login"
+                  className="px-3 py-1.5 text-xs sm:text-sm border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-900 dark:text-gray-100"
+                >
+                  Login
+                </Link>
+              )
             )}
           </div>
         </div>
