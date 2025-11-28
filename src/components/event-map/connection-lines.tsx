@@ -1,86 +1,62 @@
 import * as THREE from 'three';
-import { useMemo, useRef, useEffect } from 'react';
+import { useMemo, useRef } from 'react';
 
 interface ConnectionLinesProps {
   stories: any[];
 }
 
 export function ConnectionLines({ stories }: ConnectionLinesProps) {
-  const lines = useMemo(() => {
-    const connections: any[] = [];
+  const { geometry, material } = useMemo(() => {
+    const points: THREE.Vector3[] = [];
+    const colors: number[] = [];
+    const maxConnections = Math.min(stories.length * 3, 500);
+    let connectionCount = 0;
     
-    for (let i = 0; i < stories.length; i++) {
-      for (let j = i + 1; j < stories.length; j++) {
-        const similarity = calculateSimilarity(stories[i], stories[j]);
-        
-        if (similarity > 0.6) {
-          connections.push({
-            start: getPosition(stories[i], i, stories.length),
-            end: getPosition(stories[j], j, stories.length),
-            similarity,
-          });
+    const clusterMap = new Map<string, any[]>();
+    stories.forEach((story, idx) => {
+      const key = story.cluster_id || story.category || 'general';
+      if (!clusterMap.has(key)) clusterMap.set(key, []);
+      clusterMap.get(key)!.push({ story, index: idx });
+    });
+
+    clusterMap.forEach((clusterStories) => {
+      for (let i = 0; i < clusterStories.length && connectionCount < maxConnections; i++) {
+        for (let j = i + 1; j < clusterStories.length && connectionCount < maxConnections; j++) {
+          const story1 = clusterStories[i];
+          const story2 = clusterStories[j];
+          
+          const pos1 = getPosition(story1.story, story1.index, stories.length);
+          const pos2 = getPosition(story2.story, story2.index, stories.length);
+          
+          points.push(new THREE.Vector3(...pos1));
+          points.push(new THREE.Vector3(...pos2));
+          
+          const color = new THREE.Color('#dc2626');
+          colors.push(color.r, color.g, color.b);
+          colors.push(color.r, color.g, color.b);
+          
+          connectionCount++;
         }
       }
-    }
+    });
     
-    return connections;
+    const geom = new THREE.BufferGeometry().setFromPoints(points);
+    geom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    
+    const mat = new THREE.LineBasicMaterial({ 
+      vertexColors: true, 
+      transparent: true, 
+      opacity: 0.3,
+      linewidth: 1
+    });
+    
+    return { geometry: geom, material: mat };
   }, [stories]);
 
-  return (
-    <group>
-      {lines.map((line, index) => (
-        <Line
-          key={index}
-          start={line.start}
-          end={line.end}
-          opacity={line.similarity * 0.5}
-        />
-      ))}
-    </group>
-  );
+  return <lineSegments geometry={geometry} material={material} />;
 }
 
-function Line({ start, end, opacity }: any) {
-  const points = useMemo(
-    () => [new THREE.Vector3(...start), new THREE.Vector3(...end)],
-    [start, end]
-  );
 
-  const geomRef = useRef<THREE.BufferGeometry | null>(null);
-
-  useEffect(() => {
-    if (geomRef.current) {
-      geomRef.current.setFromPoints(points);
-      geomRef.current.computeBoundingSphere();
-    }
-  }, [points]);
-
-  return (
-    <line>
-      <bufferGeometry ref={geomRef} />
-      <lineBasicMaterial color="#3b82f6" transparent opacity={opacity} />
-    </line>
-  );
-}
-
-function calculateSimilarity(story1: any, story2: any): number {
-  if (story1.cluster_id && story1.cluster_id === story2.cluster_id) {
-    return 0.9;
-  }
-  
-  if (story1.category === story2.category) {
-    return 0.7;
-  }
-  
-  const timeDiff = Math.abs(
-    new Date(story1.published_at).getTime() - new Date(story2.published_at).getTime()
-  );
-  const daysDiff = timeDiff / (1000 * 60 * 60 * 24);
-  
-  if (daysDiff < 1) return 0.6;
-  
-  return 0;
-}
 
 function getPosition(story: any, index: number, total: number): [number, number, number] {
   if (story.position_3d) {

@@ -3,31 +3,46 @@ import { supabaseAdmin } from '@/lib/supabase/client';
 
 export async function GET() {
   try {
-    if (supabaseAdmin) {
-      const { data, error } = await supabaseAdmin
-        .from('stories_raw')
-        .select('id, title, category, published_at, metadata, position_3d')
-        .order('published_at', { ascending: false })
-        .limit(200);
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    
+    const { data: stories, error } = await supabaseAdmin
+      .from('stories_raw')
+      .select(`
+        id, 
+        title, 
+        category, 
+        published_at, 
+        metadata,
+        sources(name)
+      `)
+      .gte('published_at', thirtyDaysAgo.toISOString())
+      .order('published_at', { ascending: false })
+      .limit(500);
 
-      if (!error && data) {
-        return NextResponse.json({ stories: data });
-      }
+    if (error) {
+      console.error('Supabase fetch error:', error);
+      return NextResponse.json({ stories: [], error: error.message }, { status: 500 });
     }
+
+    const { data: clusterItems } = await supabaseAdmin
+      .from('cluster_items')
+      .select('story_id, cluster_id');
+
+    const clusterMap = new Map<string, string>();
+    clusterItems?.forEach(item => {
+      clusterMap.set(item.story_id, item.cluster_id);
+    });
+
+    const enrichedStories = stories?.map(story => ({
+      ...story,
+      cluster_id: clusterMap.get(story.id) || null
+    })) || [];
+
+    return NextResponse.json({ stories: enrichedStories });
   } catch (e) {
-    console.warn('Supabase fetch failed for event-map stories:', e);
+    console.error('Event map API error:', e);
+    return NextResponse.json({ stories: [], error: String(e) }, { status: 500 });
   }
-
-  // Fallback: return mock sample stories so the UI still works in dev without credentials
-  const now = new Date().toISOString();
-  const sample = Array.from({ length: 16 }).map((_, i) => ({
-    id: `sample-${i}`,
-    title: `Sample story ${i + 1}`,
-    category: ['Politics', 'Business', 'Sports', 'Technology'][i % 4],
-    published_at: now,
-    metadata: { source: 'Sample' },
-    position_3d: { x: (Math.random() - 0.5) * 40, y: (Math.random() - 0.5) * 40, z: (Math.random() - 0.5) * 40 },
-  }));
-
-  return NextResponse.json({ stories: sample });
 }

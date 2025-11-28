@@ -24,8 +24,9 @@ export function Header() {
     <header className="sticky top-0 z-50 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
         <div className="flex items-center justify-between gap-4 mb-3">
-          <Link href="/" className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
-            Source News
+          <Link href="/" className="flex items-center gap-2">
+            <img src="/icon.svg" alt="SN" className="w-8 h-8" />
+            <span className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">Source News</span>
           </Link>
           
           <div className="flex items-center gap-2">
@@ -34,6 +35,12 @@ export function Header() {
               className="px-3 py-1.5 text-xs sm:text-sm border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-900 dark:text-gray-100"
             >
               Timeline
+            </Link>
+            <Link
+              href="/event-map"
+              className="px-3 py-1.5 text-xs sm:text-sm border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-900 dark:text-gray-100"
+            >
+              Event Map
             </Link>
             <ThemeToggle />
             {mounted && (
