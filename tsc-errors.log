@@ -1,0 +1,15 @@
+src/app/event-map/page.tsx(3,17): error TS2300: Duplicate identifier 'Suspense'.
+src/app/event-map/page.tsx(4,8): error TS2300: Duplicate identifier 'dynamic'.
+src/app/event-map/page.tsx(5,8): error TS2300: Duplicate identifier 'Link'.
+src/app/event-map/page.tsx(7,7): error TS2451: Cannot redeclare block-scoped variable 'EventMapVisualization'.
+src/app/event-map/page.tsx(16,25): error TS2323: Cannot redeclare exported variable 'default'.
+src/app/event-map/page.tsx(16,25): error TS2393: Duplicate function implementation.
+src/app/event-map/page.tsx(36,10): error TS2300: Duplicate identifier 'Suspense'.
+src/app/event-map/page.tsx(37,8): error TS2300: Duplicate identifier 'dynamic'.
+src/app/event-map/page.tsx(38,8): error TS2300: Duplicate identifier 'Link'.
+src/app/event-map/page.tsx(40,7): error TS2451: Cannot redeclare block-scoped variable 'EventMapVisualization'.
+src/app/event-map/page.tsx(49,25): error TS2323: Cannot redeclare exported variable 'default'.
+src/app/event-map/page.tsx(49,25): error TS2393: Duplicate function implementation.
+src/components/event-map/control-panel.tsx(5,25): error TS2393: Duplicate function implementation.
+src/components/event-map/control-panel.tsx(83,17): error TS2393: Duplicate function implementation.
+src/components/event-map/event-map-visualization.tsx(6,10): error TS2614: Module '"./story-nodes"' has no exported member 'StoryNodes'. Did you mean to use 'import StoryNodes from "./story-nodes"' instead?
