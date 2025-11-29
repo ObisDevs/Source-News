@@ -16,7 +16,8 @@ async function markProviderDown(provider: AIProvider): Promise<void> {
 }
 
 export async function generateAICompletion(
-  prompt: string
+  prompt: string,
+  options?: { maxTokens?: number }
 ): Promise<string> {
   for (const provider of providers) {
     if (!(await checkProviderHealth(provider))) continue;

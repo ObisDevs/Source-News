@@ -56,11 +56,14 @@ export async function ingestRSSFeeds(): Promise<IngestResult> {
   const parser = new Parser();
   const results: IngestResult = { ingested: 0, skipped: 0, errors: 0 };
   
-  console.log('Starting RSS ingestion from', RSS_SOURCES.length, 'sources');
-  console.log('Note: Skipping Premium Times and Punch due to feed issues');
+  console.log('\n=== RSS Feed Ingestion Started ===');
+  console.log(`Timestamp: ${new Date().toISOString()}`);
+  console.log(`📡 Processing ${RSS_SOURCES.length} RSS sources\n`);
 
   for (const source of RSS_SOURCES) {
+    console.log(`\n📰 Source: ${source.name}`);
     try {
+      console.log(`   🔍 Checking database for source...`);
       // Get source ID from database
       const { data: sourceData, error: sourceError } = await supabaseAdmin
         .from('sources')
@@ -69,20 +72,23 @@ export async function ingestRSSFeeds(): Promise<IngestResult> {
         .single();
 
       if (sourceError) {
-        console.error(`Database error for ${source.name}:`, sourceError);
+        console.error(`   ❌ Database error: ${sourceError.message}`);
         results.errors++;
         continue;
       }
 
       if (!sourceData) {
-        console.warn(`Source not found in database: ${source.name}`);
+        console.warn(`   ⚠️  Source not found in database`);
         results.errors++;
         continue;
       }
 
-      console.log(`Fetching ${source.name}...`);
+      console.log(`   🌐 Fetching RSS feed from ${source.url}...`);
       const feed = await parser.parseURL(source.url);
-      console.log(`✓ ${source.name}: ${feed.items.length} items`);
+      console.log(`   ✅ Retrieved ${feed.items.length} items`);
+      console.log(`   🔄 Processing items...`);
+
+      let sourceIngested = 0, sourceSkipped = 0, sourceErrors = 0;
 
       for (const item of feed.items) {
         try {
@@ -101,6 +107,7 @@ export async function ingestRSSFeeds(): Promise<IngestResult> {
 
           if (existing) {
             results.skipped++;
+            sourceSkipped++;
             continue;
           }
 
@@ -147,23 +154,36 @@ export async function ingestRSSFeeds(): Promise<IngestResult> {
 
           if (!error) {
             results.ingested++;
+            sourceIngested++;
           } else if (error.code === '23505') {
             results.skipped++;
+            sourceSkipped++;
           } else {
             results.errors++;
-            console.error('Insert error:', error);
+            sourceErrors++;
+            console.error(`   ❌ Insert error: ${error.message}`);
           }
         } catch (itemError) {
           results.errors++;
-          console.error('Item processing error:', itemError);
+          sourceErrors++;
+          console.error(`   ❌ Item error: ${itemError}`);
         }
       }
+
+      console.log(`   📊 ${source.name} Results:`);
+      console.log(`      ✅ Ingested: ${sourceIngested}`);
+      console.log(`      ⏭️  Skipped: ${sourceSkipped}`);
+      console.log(`      ❌ Errors: ${sourceErrors}`);
     } catch (feedError) {
       results.errors++;
-      console.error(`✗ ${source.name}: Failed`);
+      console.error(`   ❌ Feed fetch failed: ${feedError}`);
     }
   }
 
-  console.log('Ingestion complete:', results);
+  console.log('\n📊 Total RSS Results:');
+  console.log(`   ✅ Ingested: ${results.ingested}`);
+  console.log(`   ⏭️  Skipped: ${results.skipped}`);
+  console.log(`   ❌ Errors: ${results.errors}`);
+  console.log('=== RSS Feed Ingestion Complete ===\n');
   return results;
 }

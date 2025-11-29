@@ -1,101 +1,112 @@
 # Supabase pg_cron Setup Guide
 
-Your pg_cron jobs are now active in Supabase. They are scheduled to run every 15 minutes, but they are using **placeholder values** that need to be replaced with actual credentials.
+## Quick Fix
 
-## Status
+**Current CRON_SECRET:** `8f3c2b9e1a7d5f4c6b8e2a9f3d5c7b1a`
 
-✅ Two cron jobs created and active:
-- `ingest_news_pgcron` – every 15 minutes
-- `process_stories_pgcron` – every 15 minutes (offset by 2 minutes)
+### Steps to Fix:
 
-⚠️ **Jobs are currently failing because they use placeholder values:**
-- `YOUR_VERCEL_URL` (should be your Vercel deployment URL)
-- `CRON_SECRET` (should be your rotated Bearer token)
+1. **Get your Vercel deployment URL** (e.g., `https://source-news.vercel.app`)
 
-## Steps to Finalize
+2. **Run the fix script in Supabase SQL Editor:**
+   - Open `/migrations/fix_pg_cron.sql`
+   - Replace `YOUR_VERCEL_URL` with your actual Vercel URL
+   - Copy and paste into Supabase SQL Editor
+   - Execute the script
 
-### 1. Rotate Your `CRON_SECRET`
-
-Generate a new secure random secret:
-```bash
-openssl rand -hex 32
-# Example output: 8f3c2b9e1a7d5f4c6b8e2a9f3d5c7b1a9f3c2b9e1a7d5f4c6b8e2a9f3d5c7b
-```
-
-Store this securely in:
-- **Vercel** → Project Settings → Environment Variables → `CRON_SECRET`
-- **Supabase** → As part of the cron job update (below)
-
-### 2. Update the Supabase Cron Jobs
-
-In your Supabase SQL editor, replace the placeholder jobs with actual values:
-
+3. **Verify the jobs are scheduled:**
 ```sql
--- First, unschedule the old jobs
-SELECT cron.unschedule('ingest_news_pgcron');
-SELECT cron.unschedule('process_stories_pgcron');
-
--- Then schedule new jobs with actual credentials
-SELECT cron.schedule(
-  'ingest_news_pgcron',
-  '*/15 * * * *',
-  $$
-  SELECT net.http_post(
-    url := 'https://source-news.vercel.app/api/worker/ingest',
-    headers := '{"Content-Type":"application/json","Authorization":"Bearer YOUR_NEW_SECRET_HERE"}'::jsonb
-  );
-  $$
-);
-
-SELECT cron.schedule(
-  'process_stories_pgcron',
-  '2-59/15 * * * *',
-  $$
-  SELECT net.http_post(
-    url := 'https://source-news.vercel.app/api/worker/process',
-    headers := '{"Content-Type":"application/json","Authorization":"Bearer YOUR_NEW_SECRET_HERE"}'::jsonb
-  );
-  $$
-);
-
--- Verify the jobs are active
-SELECT * FROM cron.job WHERE jobname IN ('ingest_news_pgcron', 'process_stories_pgcron');
+SELECT jobid, jobname, schedule, command, active 
+FROM cron.job 
+WHERE jobname IN ('ingest_news_pgcron', 'process_stories_pgcron');
 ```
 
-**Replace:**
-- `https://source-news.vercel.app` with your actual Vercel URL (or preview URL if testing)
-- `YOUR_NEW_SECRET_HERE` with the rotated secret from step 1
+4. **Wait 15 minutes and check job runs:**
+```sql
+SELECT * FROM cron.job_run_details 
+WHERE jobid IN (SELECT jobid FROM cron.job WHERE jobname IN ('ingest_news_pgcron', 'process_stories_pgcron'))
+ORDER BY start_time DESC 
+LIMIT 10;
+```
 
-### 3. Verify in Supabase
+## What's Configured
 
-After updating:
-1. Go to **Supabase → Project → Logs** (or **Extensions → pg_cron**)
-2. Watch for successful HTTP POST calls at :15 and :17 (or :02, :17, :32, :47) past each hour
-3. Check for any errors in the logs
+✅ **CRON_SECRET** is already set in `.env`: `8f3c2b9e1a7d5f4c6b8e2a9f3d5c7b1a`
+✅ **API routes** are protected with Bearer token authentication
+✅ **Vercel cron** runs once daily at 1 AM (Hobby plan limit)
+✅ **Supabase pg_cron** will run every 15 minutes (no plan limits)
 
-### 4. Monitor Vercel Logs
+## Schedule Details
 
-In Vercel dashboard:
-1. Go to **Project → Logs**
-2. Look for incoming requests to `/api/worker/ingest` and `/api/worker/process`
-3. Verify `200 OK` responses or check error details if jobs are failing
+- **ingest_news_pgcron**: Every 15 minutes (`:00, :15, :30, :45`)
+- **process_stories_pgcron**: Every 15 minutes offset by 2 minutes (`:02, :17, :32, :47`)
+
+This ensures ingestion completes before processing starts
+
+## Monitoring
+
+### Check Supabase Logs
+1. Go to **Supabase → Project → Logs**
+2. Filter for HTTP requests
+3. Look for POST calls to your Vercel URL
+4. Check for `200 OK` responses
+
+### Check Vercel Logs
+1. Go to **Vercel → Project → Logs**
+2. Look for `/api/worker/ingest` and `/api/worker/process` requests
+3. Verify successful responses with ingestion counts
+
+### Check Job Run History
+```sql
+SELECT 
+  jobname,
+  start_time,
+  end_time,
+  status,
+  return_message
+FROM cron.job_run_details 
+WHERE jobid IN (SELECT jobid FROM cron.job WHERE jobname LIKE '%pgcron')
+ORDER BY start_time DESC 
+LIMIT 20;
+```
 
 ## Troubleshooting
 
-**Jobs still failing?**
-- Confirm Vercel URL is publicly accessible (not localhost)
-- Verify `CRON_SECRET` matches between Supabase and Vercel environment variables
-- Check Supabase logs for HTTP errors (e.g., 401 Unauthorized = wrong secret)
-- Verify the database service role key has permission to call HTTP endpoints
+**401 Unauthorized Error:**
+- CRON_SECRET mismatch between Supabase SQL and Vercel env
+- Make sure Vercel has `CRON_SECRET=8f3c2b9e1a7d5f4c6b8e2a9f3d5c7b1a` in environment variables
 
-**Need to disable?**
+**Connection Timeout:**
+- Vercel URL is incorrect or not deployed
+- Use production URL, not localhost
+
+**Jobs Not Running:**
+```sql
+-- Check if jobs are active
+SELECT * FROM cron.job WHERE active = true;
+
+-- Manually trigger a job to test
+SELECT cron.schedule('test_ingest', '* * * * *', $$
+  SELECT net.http_post(
+    url := 'https://YOUR_VERCEL_URL/api/worker/ingest',
+    headers := '{"Content-Type":"application/json","Authorization":"Bearer 8f3c2b9e1a7d5f4c6b8e2a9f3d5c7b1a"}'::jsonb
+  );
+$$);
+
+-- Wait 1 minute, then check results and unschedule
+SELECT * FROM cron.job_run_details WHERE jobname = 'test_ingest';
+SELECT cron.unschedule('test_ingest');
+```
+
+**Disable Cron Jobs:**
 ```sql
 SELECT cron.unschedule('ingest_news_pgcron');
 SELECT cron.unschedule('process_stories_pgcron');
 ```
 
-## Additional Notes
+## Notes
 
-- Supabase pg_cron runs **inside your database** and is not subject to Vercel Hobby plan limitations
-- If you also have Vercel cron jobs enabled (`vercel.json`), both schedulers will run — you may want to disable one to avoid duplicate ingestion
-- pg_cron is **more reliable** than Vercel Hobby for frequent scheduling
+- Supabase pg_cron runs **inside your database** (no Vercel plan limits)
+- Vercel cron (once daily) + Supabase cron (every 15 min) = both will run
+- This is intentional for redundancy and frequent updates
+- pg_cron is more reliable for frequent scheduling
