@@ -474,7 +474,16 @@ export function AIChatWidget() {
                       {storyHistory.slice(-5).map((story) => (
                         <button
                           key={story.id}
-                          onClick={() => setPinnedStory({ ...story, isPinned: false })}
+                          onClick={() => {
+                            const foundStory = searchResults.find(s => s.id === story.id);
+                            setPinnedStory({ 
+                              id: story.id, 
+                              title: story.title, 
+                              image: story.image, 
+                              url: foundStory?.url || '', 
+                              isPinned: false 
+                            });
+                          }}
                           className={`flex-shrink-0 w-8 h-8 rounded border-2 overflow-hidden ${story.id === pinnedStory.id ? 'border-blue-600' : 'border-gray-300 opacity-50'}`}
                         >
                           {story.image && <img src={story.image} alt="" className="w-full h-full object-cover" />}
