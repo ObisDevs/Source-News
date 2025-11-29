@@ -37,41 +37,69 @@ export async function ingestNewsAPI(): Promise<IngestResult> {
   const results: IngestResult = { ingested: 0, skipped: 0, errors: 0 };
   const apiKey = process.env.NEWSAPI_KEY;
 
+  console.log('\n=== NewsAPI Ingestion Started ===')
+  console.log(`Timestamp: ${new Date().toISOString()}`);
+
   if (!apiKey) {
-    console.log('NewsAPI key not configured, skipping');
+    console.log('⚠️  NewsAPI key not configured, skipping');
     return results;
   }
 
   try {
-    // Get NewsAPI source from database
-    const { data: sourceData } = await supabaseAdmin
+    console.log('📡 Checking NewsAPI source in database...');
+    // Get or create NewsAPI source
+    let { data: sourceData } = await supabaseAdmin
       .from('sources')
       .select('id')
-      .eq('name', 'NewsAPI Nigeria')
+      .eq('name', 'NewsAPI')
       .single();
 
     if (!sourceData) {
-      console.warn('NewsAPI source not found in database');
-      return results;
+      console.log('➕ Creating NewsAPI source...');
+      const { data: newSource, error: insertError } = await supabaseAdmin
+        .from('sources')
+        .insert({
+          name: 'NewsAPI',
+          type: 'api',
+          url: 'https://newsapi.org',
+          is_active: true,
+          credibility_score: 70,
+        })
+        .select('id')
+        .single();
+
+      if (insertError) {
+        console.error('❌ Failed to create NewsAPI source:', insertError);
+        return results;
+      }
+      sourceData = newSource;
+      console.log('✅ NewsAPI source created');
+    } else {
+      console.log('✅ NewsAPI source found');
     }
 
+    console.log('🌐 Fetching articles from NewsAPI...');
     const response = await fetch(
       `https://newsapi.org/v2/top-headlines?country=ng&pageSize=50&apiKey=${apiKey}`
     );
 
     if (!response.ok) {
-      console.error('NewsAPI error:', response.status);
+      console.error(`❌ NewsAPI HTTP error: ${response.status}`);
       results.errors++;
       return results;
     }
 
     const data = await response.json();
-    console.log(`Got ${data.articles?.length || 0} articles from NewsAPI`);
+    console.log(`📰 Received ${data.articles?.length || 0} articles from NewsAPI`);
 
+    console.log('\n🔄 Processing articles...');
     for (const article of data.articles || []) {
       try {
         const url = article.url;
-        if (!url) continue;
+        if (!url) {
+          console.log('⏭️  Skipping article without URL');
+          continue;
+        }
 
         const canonicalUrl = normalizeURL(url);
         const fingerprint = generateFingerprint(canonicalUrl);
@@ -84,6 +112,7 @@ export async function ingestNewsAPI(): Promise<IngestResult> {
 
         if (existing) {
           results.skipped++;
+          console.log(`⏭️  Duplicate: ${article.title?.substring(0, 50)}...`);
           continue;
         }
 
@@ -102,29 +131,38 @@ export async function ingestNewsAPI(): Promise<IngestResult> {
           source_id: sourceData.id,
           category,
           metadata: {
-            source: article.source?.name || 'NewsAPI',
+            source_name: article.source?.name || 'NewsAPI',
             author: article.author,
-            urlToImage: article.urlToImage,
+            image: article.urlToImage,
+            og_image: article.urlToImage,
           },
         });
 
         if (!error) {
           results.ingested++;
+          console.log(`✅ Ingested [${category}]: ${article.title?.substring(0, 50)}...`);
         } else if (error.code === '23505') {
           results.skipped++;
+          console.log(`⏭️  Duplicate: ${article.title?.substring(0, 50)}...`);
         } else {
           results.errors++;
-          console.error('Insert error:', error);
+          console.error(`❌ Insert error for "${article.title?.substring(0, 50)}...": ${error.message}`);
         }
       } catch (itemError) {
         results.errors++;
-        console.error('Article processing error:', itemError);
+        console.error(`❌ Article processing error: ${itemError}`);
       }
     }
   } catch (error) {
     results.errors++;
-    console.error('NewsAPI fetch error:', error);
+    console.error(`❌ NewsAPI fetch error: ${error}`);
   }
+
+  console.log('\n📊 NewsAPI Results:');
+  console.log(`   ✅ Ingested: ${results.ingested}`);
+  console.log(`   ⏭️  Skipped: ${results.skipped}`);
+  console.log(`   ❌ Errors: ${results.errors}`);
+  console.log('=== NewsAPI Ingestion Complete ===\n');
 
   return results;
 }

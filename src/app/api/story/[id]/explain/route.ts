@@ -1,41 +1,82 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/client';
+import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 import { generateAICompletion } from '@/lib/ai/orchestrator';
-import { getCached, setCache } from '@/lib/redis/client';
-import { checkLimit, incrementUsage } from '@/lib/usage/tracker';
-import { TIER_LIMITS } from '@/lib/types/subscription';
+
+export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
 
 export async function POST(
-  req: NextRequest,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
-    const { question, userId = 'anonymous', tier = 'free' } = await req.json();
-
-    if (!question) {
-      return NextResponse.json({ error: 'Question required' }, { status: 400 });
+    const authHeader = request.headers.get('authorization');
+    
+    if (!authHeader) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const limit = TIER_LIMITS[tier as keyof typeof TIER_LIMITS].aiExplanationsPerDay;
-    const canUse = await checkLimit(userId, 'aiExplanations', limit);
+    const token = authHeader.replace('Bearer ', '');
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { global: { headers: { Authorization: `Bearer ${token}` } } }
+    );
 
-    if (!canUse) {
-      return NextResponse.json(
-        { error: 'Daily limit reached', limit, upgrade: tier === 'free' },
-        { status: 429 }
-      );
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const cacheKey = `explain:${id}:${question}`;
-    const cached = await getCached<string>(cacheKey);
-    if (cached) {
-      return NextResponse.json({ explanation: cached, cached: true });
+    // Check subscription and usage
+    const adminSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    const { data: subscription } = await adminSupabase
+      .from('user_subscriptions')
+      .select('*, subscription_tiers(*)')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .single();
+
+    const tier = subscription?.subscription_tiers || { 
+      name: 'Free', 
+      features: { ai_explanations: false },
+      limits: { ai_explanations_per_day: 0 }
+    };
+
+    if (!tier.features.ai_explanations) {
+      return NextResponse.json({ 
+        error: 'Upgrade required',
+        message: 'AI explanations require a paid subscription'
+      }, { status: 403 });
     }
 
-    const { data: story } = await supabaseAdmin
+    // Check daily usage
+    const today = new Date().toISOString().split('T')[0];
+    const { data: usage } = await adminSupabase
+      .from('user_usage')
+      .select('count')
+      .eq('user_id', user.id)
+      .eq('feature', 'ai_explanation')
+      .eq('date', today)
+      .single();
+
+    const dailyLimit = tier.limits.ai_explanations_per_day;
+    if (dailyLimit > 0 && usage && usage.count >= dailyLimit) {
+      return NextResponse.json({ 
+        error: 'Limit reached',
+        message: `Daily limit of ${dailyLimit} explanations reached`
+      }, { status: 429 });
+    }
+
+    // Fetch story
+    const { data: story } = await adminSupabase
       .from('stories_raw')
-      .select('title, content, url')
+      .select('*, sources(name)')
       .eq('id', id)
       .single();
 
@@ -43,16 +84,40 @@ export async function POST(
       return NextResponse.json({ error: 'Story not found' }, { status: 404 });
     }
 
-    const prompt = `Story: ${story.title}\n\nContent: ${story.content?.slice(0, 1000)}\n\nQuestion: ${question}\n\nProvide a clear, concise explanation.`;
-    
-    const explanation = await generateAICompletion(prompt);
+    // Generate explanation
+    const prompt = `Explain this news story in simple terms for a general audience. Focus on:
+1. What happened
+2. Why it matters
+3. Key context
+4. Potential implications
 
-    await setCache(cacheKey, explanation, 3600);
-    await incrementUsage(userId, 'aiExplanations');
+Story: ${story.title}
+${story.metadata?.description || ''}
 
-    return NextResponse.json({ explanation, cached: false });
+Provide a clear, unbiased explanation in 3-4 paragraphs.`;
+
+    const explanation = await generateAICompletion(prompt, { maxTokens: 500 });
+
+    // Update usage
+    await adminSupabase.rpc('increment_usage', {
+      p_user_id: user.id,
+      p_feature: 'ai_explanation',
+      p_date: today
+    });
+
+    return NextResponse.json({ 
+      explanation,
+      usage: {
+        used: (usage?.count || 0) + 1,
+        limit: dailyLimit
+      }
+    });
+
   } catch (error) {
-    console.error('Explanation error:', error);
-    return NextResponse.json({ error: 'Failed to generate explanation' }, { status: 500 });
+    console.error('AI explanation error:', error);
+    return NextResponse.json({ 
+      error: 'Failed to generate explanation',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }

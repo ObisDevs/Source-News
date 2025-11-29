@@ -1,0 +1,154 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
+import { supabaseAdmin } from '@/lib/supabase/client';
+import { tools, executeTool } from '@/lib/ai/tools';
+
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY!);
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+export async function POST(request: NextRequest) {
+  try {
+    const { message, history = [] } = await request.json();
+
+    if (!message?.trim()) {
+      return NextResponse.json({ error: 'Message required' }, { status: 400 });
+    }
+
+    const embeddingResponse = await openai.embeddings.create({
+      model: 'text-embedding-3-small',
+      input: message,
+    });
+    const queryEmbedding = embeddingResponse.data[0].embedding;
+
+    const { data: similarStories } = await supabaseAdmin.rpc('match_stories', {
+      query_embedding: queryEmbedding,
+      match_threshold: 0.5,
+      match_count: 10,
+    });
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const { data: allStories } = await supabaseAdmin
+      .from('stories_raw')
+      .select('id, title, content, url, published_at, category, metadata, sources(name, bias_lean)')
+      .gte('published_at', today.toISOString())
+      .order('published_at', { ascending: false });
+
+    const keywordMatches = allStories?.filter((s: any) => 
+      s.title?.toLowerCase().includes('labour') || 
+      s.title?.toLowerCase().includes('labor') ||
+      s.title?.toLowerCase().includes('inec') ||
+      s.content?.toLowerCase().includes('labour') ||
+      s.content?.toLowerCase().includes('labor') ||
+      s.content?.toLowerCase().includes('inec')
+    ) || [];
+
+    const storyIds = similarStories?.map((s: any) => s.story_id) || [];
+    const { data: vectorStories } = await supabaseAdmin
+      .from('stories_raw')
+      .select('id, title, content, url, published_at, category, metadata, sources(name, bias_lean)')
+      .in('id', storyIds);
+
+    const combinedStories = [...keywordMatches, ...(vectorStories || [])]
+      .filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i)
+      .slice(0, 15);
+
+    const matchedIds = combinedStories.map(s => s.id);
+    const { data: sentimentData } = await supabaseAdmin
+      .from('social_sentiment')
+      .select('story_id, platform, positive_count, negative_count, neutral_count, sample_tweets')
+      .in('story_id', matchedIds);
+
+    const storiesContext = combinedStories.length
+      ? combinedStories.map((s: any) => 
+          `Title: ${s.title}\nSource: ${s.sources?.name} (${s.sources?.bias_lean})\nCategory: ${s.category || 'General'}\nContent: ${s.content?.substring(0, 400)}...`
+        ).join('\n\n')
+      : 'No matching stories found.';
+
+    const sentimentContext = sentimentData?.length
+      ? `\n\nSocial Sentiment:\n${sentimentData.map((sd: any) => {
+          const tweets = sd.sample_tweets || [];
+          return `${sd.positive_count} positive, ${sd.negative_count} negative\nTweets: ${tweets.slice(0, 3).map((t: any) => t.text).join(' | ')}`;
+        }).join('\n')}`
+      : '';
+
+    const conversationHistory = history
+      ?.slice(-4)
+      .map((m: any) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+      .join('\n') || '';
+
+    try {
+      const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+      
+      const prompt = `You are a Nigerian news assistant with database access.
+
+${conversationHistory ? `Previous:\n${conversationHistory}\n\n` : ''}DATABASE (${combinedStories.length} stories):
+${storiesContext}${sentimentContext}
+
+User: ${message}
+
+Think step-by-step:
+1. What is being asked?
+2. What data matches?
+3. What's the answer?
+
+Cite specific stories. Under 200 words.`;
+
+      const result = await model.generateContent(prompt);
+      return NextResponse.json({ response: result.response.text() });
+    } catch (geminiError) {
+      console.error('Gemini error, using OpenAI with tools:', geminiError);
+    }
+
+    const systemPrompt = `You are a Nigerian news assistant with database access and search tools.
+
+${conversationHistory ? `Previous:\n${conversationHistory}\n\n` : ''}DATA:
+${storiesContext}${sentimentContext}
+
+Think step-by-step. Use tools if needed.`;
+
+    const messages: any[] = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: message },
+    ];
+
+    let toolCalls = 0;
+    const maxToolCalls = 3;
+
+    while (toolCalls < maxToolCalls) {
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4-turbo-preview',
+        messages,
+        tools,
+        max_tokens: 300,
+      });
+
+      const assistantMessage = completion.choices[0].message;
+      messages.push(assistantMessage);
+
+      if (!assistantMessage.tool_calls) {
+        return NextResponse.json({ response: assistantMessage.content });
+      }
+
+      for (const toolCall of assistantMessage.tool_calls) {
+        const args = JSON.parse(toolCall.function.arguments);
+        const result = await executeTool(toolCall.function.name, args);
+        
+        messages.push({
+          role: 'tool',
+          tool_call_id: toolCall.id,
+          content: JSON.stringify(result),
+        });
+      }
+
+      toolCalls++;
+    }
+
+    return NextResponse.json({ response: messages[messages.length - 1].content });
+  } catch (error) {
+    console.error('Chat error:', error);
+    return NextResponse.json({ error: 'Failed to process message' }, { status: 500 });
+  }
+}

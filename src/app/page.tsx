@@ -5,6 +5,7 @@ import { NewsCarousel } from '@/components/news-carousel';
 import { AIHeadlineSummary } from '@/components/ai-headline-summary';
 import { StoryImage } from '@/components/story-image';
 import { LoadMoreButton } from '@/components/load-more-button';
+import { AIChatWidget } from '@/components/ai-chat-widget';
 
 export const revalidate = 0;
 export const dynamic = 'force-dynamic';
@@ -26,7 +27,7 @@ async function getStories(category?: string, date?: string) {
         ingested_at,
         metadata,
         category,
-        sources (name, bias_lean)
+        sources (name, bias_lean, image_url)
       `)
       .gte('published_at', startOfDay.toISOString())
       .lte('published_at', endOfDay.toISOString())
@@ -123,6 +124,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      <AIChatWidget />
       {featuredStories.length > 0 && <NewsCarousel stories={featuredStories} />}
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
@@ -164,10 +166,11 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {stories.slice(0, 6).map((story: any) => {
             const imageUrl = story.metadata?.image || story.metadata?.og_image;
+            const sourceImageUrl = story.sources?.image_url;
             return (
               <div key={story.id} className="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden hover:border-blue-500 dark:hover:border-blue-500 transition-all shadow-sm hover:shadow-md">
                 <Link href={`/story/${story.id}`} className="block">
-                  <StoryImage src={imageUrl} alt={story.title} />
+                  <StoryImage src={imageUrl} alt={story.title} sourceImageUrl={sourceImageUrl} />
                   
                   <div className="p-4 sm:p-5">
                     <h3 className="text-sm sm:text-base font-semibold mb-3 line-clamp-2 text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400">
@@ -212,10 +215,11 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {stories.slice(6).map((story: any) => {
             const imageUrl = story.metadata?.image || story.metadata?.og_image;
+            const sourceImageUrl = story.sources?.image_url;
             return (
               <div key={story.id} className="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden hover:border-blue-500 dark:hover:border-blue-500 transition-all shadow-sm hover:shadow-md">
                 <Link href={`/story/${story.id}`} className="block">
-                  <StoryImage src={imageUrl} alt={story.title} />
+                  <StoryImage src={imageUrl} alt={story.title} sourceImageUrl={sourceImageUrl} />
                   
                   <div className="p-4 sm:p-5">
                     <h3 className="text-sm sm:text-base font-semibold mb-3 line-clamp-2 text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400">
