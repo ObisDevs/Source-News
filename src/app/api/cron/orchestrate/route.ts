@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { generateBatchSummaries } from '@/lib/ai/summary-generator';
+import { supabaseAdmin } from '@/lib/supabase/admin';
+import { extractEntities } from '@/lib/ai/knowledge-graph';
 
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
@@ -6,41 +9,39 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://source-news.vercel.app';
-  const results = { ingestion: null, summaries: null, entities: null };
+  const results = { summaries: 0, entities: 0 };
 
   try {
     console.log('🚀 Starting orchestration...');
 
-    // Step 1: Ingestion
-    console.log('📥 Running ingestion...');
-    const ingestRes = await fetch(`${baseUrl}/api/cron/ingest`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${process.env.CRON_SECRET}` },
-    });
-    results.ingestion = await ingestRes.json();
-    console.log('✓ Ingestion complete');
-
-    // Wait 2 minutes for ingestion to settle
-    await new Promise(r => setTimeout(r, 120000));
-
-    // Step 2: Generate Summaries
+    // Step 1: Generate Summaries for stories without summaries
     console.log('📝 Generating summaries...');
-    const summariesRes = await fetch(`${baseUrl}/api/cron/generate-summaries`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${process.env.CRON_SECRET}` },
-    });
-    results.summaries = await summariesRes.json();
-    console.log('✓ Summaries complete');
+    await generateBatchSummaries(20);
+    const { count: summaryCount } = await supabaseAdmin
+      .from('story_summaries')
+      .select('*', { count: 'exact', head: true });
+    results.summaries = summaryCount || 0;
+    console.log(`✓ Summaries complete: ${results.summaries} total`);
 
-    // Step 3: Extract Entities
+    // Step 2: Extract Entities for recent stories
     console.log('🏷️ Extracting entities...');
-    const entitiesRes = await fetch(`${baseUrl}/api/cron/extract-entities`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${process.env.CRON_SECRET}` },
-    });
-    results.entities = await entitiesRes.json();
-    console.log('✓ Entities complete');
+    const { data: recentStories } = await supabaseAdmin
+      .from('stories_raw')
+      .select('id')
+      .order('published_at', { ascending: false })
+      .limit(10);
+
+    if (recentStories) {
+      for (const story of recentStories) {
+        try {
+          await extractEntities(story.id);
+          results.entities++;
+        } catch (e) {
+          console.error(`Failed to extract entities for ${story.id}`);
+        }
+      }
+    }
+    console.log(`✓ Entities complete: ${results.entities} processed`);
 
     console.log('✅ Orchestration complete');
     return NextResponse.json({ success: true, results });
