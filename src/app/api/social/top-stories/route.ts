@@ -32,17 +32,20 @@ export async function GET(request: NextRequest) {
     }
 
     const rankedStories = stories
-      .map(story => ({
-        id: story.id,
-        title: story.title,
-        content: story.content?.substring(0, 200),
-        url: story.url,
-        published_at: story.published_at,
-        category: story.category || 'General',
-        source_name: story.sources?.name || 'Unknown',
-        bias_lean: story.sources?.bias_lean || 'centre',
-        story_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/story/${story.id}`
-      }))
+      .map(story => {
+        const source = Array.isArray(story.sources) ? story.sources[0] : story.sources;
+        return {
+          id: story.id,
+          title: story.title,
+          content: story.content?.substring(0, 200),
+          url: story.url,
+          published_at: story.published_at,
+          category: story.category || 'General',
+          source_name: source?.name || 'Unknown',
+          bias_lean: source?.bias_lean || 'centre',
+          story_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/story/${story.id}`
+        };
+      })
       .slice(0, 10);
 
     return NextResponse.json({ 
