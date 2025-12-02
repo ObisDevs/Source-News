@@ -14,6 +14,7 @@ import { StoryComparison } from '@/components/story-comparison';
 import { QuickReactions } from '@/components/quick-reactions';
 import Link from 'next/link';
 import * as cheerio from 'cheerio';
+import { Metadata } from 'next';
 
 async function getFullContent(url: string, dbContent: string): Promise<string> {
   if (dbContent && dbContent.length > 500) return dbContent;
@@ -42,6 +43,53 @@ async function getFullContent(url: string, dbContent: string): Promise<string> {
   } catch {
     return dbContent;
   }
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const { data: story } = await supabaseAdmin
+    .from('stories_raw')
+    .select('*, sources(name)')
+    .eq('id', id)
+    .single();
+
+  if (!story) {
+    return {
+      title: 'Story Not Found',
+    };
+  }
+
+  const imageUrl = story.metadata?.image || story.metadata?.og_image || '/icon.svg';
+  const description = story.content?.substring(0, 160) || story.title;
+  const url = `https://source-news.vercel.app/story/${id}`;
+
+  return {
+    title: `${story.title} - Source News`,
+    description,
+    openGraph: {
+      title: story.title,
+      description,
+      url,
+      siteName: 'Source News',
+      images: [
+        {
+          url: imageUrl,
+          width: 1200,
+          height: 630,
+          alt: story.title,
+        },
+      ],
+      type: 'article',
+      publishedTime: story.published_at,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: story.title,
+      description,
+      images: [imageUrl],
+      creator: '@SourceNews_NG',
+    },
+  };
 }
 
 export default async function StoryPage({ params }: { params: Promise<{ id: string }> }) {
