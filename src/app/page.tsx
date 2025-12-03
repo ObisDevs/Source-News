@@ -12,10 +12,6 @@ export const dynamic = 'force-dynamic';
 
 async function getStories(category?: string, date?: string) {
   try {
-    const targetDate = date ? new Date(date) : new Date();
-    const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0));
-    const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999));
-    
     let query = supabaseAdmin
       .from('stories_raw')
       .select(`
@@ -29,10 +25,16 @@ async function getStories(category?: string, date?: string) {
         category,
         sources (name, bias_lean, image_url)
       `)
-      .gte('published_at', startOfDay.toISOString())
-      .lte('published_at', endOfDay.toISOString())
       .order('published_at', { ascending: false })
       .limit(100);
+    
+    if (date) {
+      const targetDate = new Date(date);
+      const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0));
+      const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999));
+      query = query.gte('published_at', startOfDay.toISOString())
+                   .lte('published_at', endOfDay.toISOString());
+    }
     
     if (category) {
       query = query.eq('category', category);
@@ -113,10 +115,21 @@ async function getFeaturedStories() {
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ category?: string; date?: string }> }) {
   const { category, date } = await searchParams;
-  const [stories, featuredStories] = await Promise.all([
+  const [storiesData, featuredStories] = await Promise.all([
     getStories(category, date),
     getFeaturedStories()
   ]);
+  
+  // Separate future stories from past stories
+  const now = new Date();
+  const futureStories = storiesData.filter(s => new Date(s.published_at) > now);
+  const pastStories = storiesData.filter(s => new Date(s.published_at) <= now);
+  
+  // Sort both arrays by published_at descending
+  futureStories.sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
+  pastStories.sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
+  
+  const stories = pastStories;
   
   const displayDate = date ? new Date(date) : new Date();
   const prevDate = new Date(displayDate);
@@ -128,6 +141,37 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       {featuredStories.length > 0 && <NewsCarousel stories={featuredStories} />}
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        {futureStories.length > 0 && (
+          <div className="mb-6">
+            <h2 className="text-sm font-semibold text-blue-600 dark:text-blue-400 mb-3">Coming Stories</h2>
+            <div className="overflow-x-auto pb-2">
+              <div className="flex gap-3" style={{ width: 'max-content' }}>
+                {futureStories.map((story: any) => {
+                  const imageUrl = story.metadata?.image || story.metadata?.og_image;
+                  return (
+                    <Link
+                      key={story.id}
+                      href={`/story/${story.id}`}
+                      className="flex-shrink-0 w-64 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 hover:border-blue-400 transition-colors"
+                    >
+                      {imageUrl && (
+                        <img src={imageUrl} alt="" className="w-full h-32 object-cover rounded mb-2" />
+                      )}
+                      <h3 className="text-sm font-semibold line-clamp-2 text-gray-900 dark:text-gray-100 mb-1">
+                        {story.title}
+                      </h3>
+                      <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
+                        <span>{story.sources?.name}</span>
+                        <span className="text-blue-600 dark:text-blue-400">{formatDistanceToNow(new Date(story.published_at))}</span>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+        
         <div className="mb-6 sm:mb-8">
           <div className="flex items-center justify-between mb-2">
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">

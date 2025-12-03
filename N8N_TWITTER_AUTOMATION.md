@@ -8,7 +8,7 @@ This workflow automatically selects the most relevant/popular news from today, g
 
 ---
 
-## Workflow Structure (8 Nodes)
+## Workflow Structure (8 Nodes) 
 
 ```
 [Schedule: 5pm Daily] 

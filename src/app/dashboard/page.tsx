@@ -8,12 +8,45 @@ export default function DashboardPage() {
   const { user, loading, signOut } = useAuth();
   const router = useRouter();
   const [bookmarks, setBookmarks] = useState([]);
+  const [loadingBookmarks, setLoadingBookmarks] = useState(true);
+  const [history, setHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+  const [historySortBy, setHistorySortBy] = useState<'recent' | 'oldest'>('recent');
 
   useEffect(() => {
     if (!loading && !user) {
       router.push('/auth/login');
+    } else if (user) {
+      fetchBookmarks();
+      fetchHistory();
     }
   }, [user, loading, router]);
+
+  const fetchBookmarks = async () => {
+    try {
+      const response = await fetch('/api/bookmarks/list');
+      const data = await response.json();
+      setBookmarks(data.bookmarks || []);
+    } catch (error) {
+      console.error('Failed to fetch bookmarks:', error);
+      setBookmarks([]);
+    } finally {
+      setLoadingBookmarks(false);
+    }
+  };
+
+  const fetchHistory = async () => {
+    try {
+      const response = await fetch('/api/reading-history');
+      const data = await response.json();
+      setHistory(data.history || []);
+    } catch (error) {
+      console.error('Failed to fetch history:', error);
+      setHistory([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -53,19 +86,27 @@ export default function DashboardPage() {
           {/* Bookmarks Card */}
           <div className="border rounded-lg p-6">
             <h2 className="text-xl font-bold mb-4">Bookmarks</h2>
-            <p className="text-2xl font-bold">{bookmarks.length}</p>
-            <a href="/dashboard/bookmarks" className="text-blue-600 hover:underline text-sm">
-              View all →
-            </a>
+            <p className="text-2xl font-bold">
+              {loadingBookmarks ? '...' : bookmarks.length}
+            </p>
+            {bookmarks.length > 0 && (
+              <a href="#bookmarks" className="text-blue-600 hover:underline text-sm">
+                View below →
+              </a>
+            )}
           </div>
 
           {/* Reading History Card */}
           <div className="border rounded-lg p-6">
             <h2 className="text-xl font-bold mb-4">Reading History</h2>
-            <p className="text-2xl font-bold">0</p>
-            <a href="/dashboard/history" className="text-blue-600 hover:underline text-sm">
-              View all →
-            </a>
+            <p className="text-2xl font-bold">
+              {loadingHistory ? '...' : history.length}
+            </p>
+            {history.length > 0 && (
+              <a href="#history" className="text-blue-600 hover:underline text-sm">
+                View below →
+              </a>
+            )}
           </div>
         </div>
 
@@ -81,6 +122,93 @@ export default function DashboardPage() {
             </a>
           </div>
         </div>
+
+        {/* Bookmarks List */}
+        {bookmarks.length > 0 && (
+          <div id="bookmarks" className="mt-8 border rounded-lg p-6">
+            <h2 className="text-xl font-bold mb-4">Your Bookmarks</h2>
+            <div className="grid md:grid-cols-2 gap-4">
+              {bookmarks.map((bookmark: any) => {
+                const story = bookmark.stories_raw;
+                const imageUrl = story?.metadata?.image_url || story?.metadata?.og_image;
+                return (
+                  <a 
+                    key={bookmark.id}
+                    href={`/story/${bookmark.story_id}`}
+                    className="flex gap-4 border rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+                  >
+                    {imageUrl && (
+                      <img 
+                        src={imageUrl} 
+                        alt="" 
+                        className="w-24 h-24 object-cover rounded flex-shrink-0"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold line-clamp-2 mb-1">
+                        {story?.title || 'Untitled Story'}
+                      </h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Saved {new Date(bookmark.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Reading History */}
+        {history.length > 0 && (
+          <div id="history" className="mt-8 border rounded-lg p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Reading History</h2>
+              <select 
+                value={historySortBy}
+                onChange={(e) => setHistorySortBy(e.target.value as 'recent' | 'oldest')}
+                className="px-3 py-1 border rounded text-sm"
+              >
+                <option value="recent">Most Recent</option>
+                <option value="oldest">Oldest First</option>
+              </select>
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              {[...history].sort((a: any, b: any) => {
+                const dateA = new Date(a.viewed_at).getTime();
+                const dateB = new Date(b.viewed_at).getTime();
+                return historySortBy === 'recent' ? dateB - dateA : dateA - dateB;
+              }).map((item: any) => {
+                const story = item.stories_raw;
+                const imageUrl = story?.metadata?.image_url || story?.metadata?.og_image;
+                return (
+                  <a 
+                    key={item.id}
+                    href={`/story/${item.story_id}`}
+                    className="flex gap-4 border rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+                  >
+                    {imageUrl && (
+                      <img 
+                        src={imageUrl} 
+                        alt="" 
+                        className="w-24 h-24 object-cover rounded flex-shrink-0"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold line-clamp-2 mb-1">
+                        {story?.title || 'Untitled Story'}
+                      </h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Read {new Date(item.viewed_at).toLocaleDateString()}
+                        {item.read_time > 0 && ` • ${Math.floor(item.read_time / 60)}m ${item.read_time % 60}s`}
+                      </p>
+                    </div>
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -12,6 +12,7 @@ import { FactCheckButton } from '@/components/fact-check-button';
 import { StoryTimeline } from '@/components/story-timeline';
 import { StoryComparison } from '@/components/story-comparison';
 import { QuickReactions } from '@/components/quick-reactions';
+import { TrackReading } from '@/components/track-reading';
 import Link from 'next/link';
 import * as cheerio from 'cheerio';
 import { Metadata } from 'next';
@@ -109,17 +110,20 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
   
   const fullContent = await getFullContent(story.url, story.content || '');
 
-  // Get related stories (same topic)
+  // Get related stories (same category, recent)
   const { data: relatedStories } = await supabaseAdmin
     .from('stories_raw')
-    .select('id, title, url, sources(name, bias_lean)')
+    .select('id, title, url, published_at, metadata, sources(name, bias_lean)')
     .neq('id', id)
-    .limit(5);
+    .eq('category', story.category || 'General')
+    .order('published_at', { ascending: false })
+    .limit(6);
 
   const imageUrl = story.metadata?.image || story.metadata?.og_image;
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      <TrackReading storyId={story.id} />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <Link
           href="/"
@@ -227,17 +231,30 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
         {relatedStories && relatedStories.length > 0 && (
           <div className="mt-6 sm:mt-8">
             <h2 className="text-lg sm:text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">Related Stories</h2>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {relatedStories.map((related: any) => (
-                <a
-                  key={related.id}
-                  href={`/story/${related.id}`}
-                  className="block p-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg hover:border-blue-500 transition-colors shadow-sm hover:shadow-md"
-                >
-                  <h3 className="font-semibold mb-2 text-gray-900 dark:text-gray-100 line-clamp-2">{related.title}</h3>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">{related.sources?.name}</span>
-                </a>
-              ))}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {relatedStories.map((related: any) => {
+                const relatedImage = related.metadata?.image || related.metadata?.og_image;
+                return (
+                  <a
+                    key={related.id}
+                    href={`/story/${related.id}`}
+                    className="block bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden hover:border-blue-500 transition-colors shadow-sm hover:shadow-md"
+                  >
+                    {relatedImage && (
+                      <img src={relatedImage} alt="" className="w-full h-32 object-cover" />
+                    )}
+                    <div className="p-4">
+                      <h3 className="font-semibold mb-2 text-gray-900 dark:text-gray-100 line-clamp-2">{related.title}</h3>
+                      <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
+                        <span>{related.sources?.name}</span>
+                        {related.published_at && (
+                          <span>{formatDistanceToNow(new Date(related.published_at), { addSuffix: true })}</span>
+                        )}
+                      </div>
+                    </div>
+                  </a>
+                );
+              })}
             </div>
           </div>
         )}

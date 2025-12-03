@@ -11,6 +11,7 @@ interface Story {
 export function AIHeadlineSummary({ stories }: { stories: Story[] }) {
   const [summary, setSummary] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [selectedStories, setSelectedStories] = useState<string[]>([]);
 
   useEffect(() => {
@@ -39,9 +40,12 @@ export function AIHeadlineSummary({ stories }: { stories: Story[] }) {
         const data = await response.json();
         setSummary(data.summary);
         if (storyIds) setSelectedStories(storyIds);
+        setError(false);
+      } else {
+        setError(true);
       }
-    } catch (error) {
-      console.error('Summary generation failed:', error);
+    } catch (err) {
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -56,6 +60,8 @@ export function AIHeadlineSummary({ stories }: { stories: Story[] }) {
       generateSummary(newSelection);
     }
   };
+
+  if (error) return null;
 
   return (
     <div className="my-16 py-12">

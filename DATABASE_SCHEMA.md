@@ -158,10 +158,12 @@ COMMENT ON TABLE user_usage IS 'Daily usage tracking for tier enforcement';
 CREATE TABLE bookmarks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  story_id UUID REFERENCES stories_raw(id) ON DELETE CASCADE,
   cluster_id UUID REFERENCES story_clusters(id) ON DELETE CASCADE,
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(user_id, cluster_id)
+  UNIQUE(user_id, story_id),
+  CHECK (story_id IS NOT NULL OR cluster_id IS NOT NULL)
 );
 
 COMMENT ON TABLE bookmarks IS 'User-saved story clusters';

@@ -27,6 +27,11 @@ export async function POST(request: NextRequest) {
           skipped: rssResults.skipped + newsApiResults.skipped + twitterResults.skipped,
           errors: rssResults.errors + newsApiResults.errors + twitterResults.errors,
         },
+        sources: [
+          ...(rssResults.sources || []),
+          { name: 'NewsAPI', ingested: newsApiResults.ingested, skipped: newsApiResults.skipped, errors: newsApiResults.errors },
+          { name: 'Twitter', ingested: twitterResults.ingested, skipped: twitterResults.skipped, errors: twitterResults.errors }
+        ]
       },
       timestamp: new Date().toISOString(),
     });
@@ -62,6 +67,11 @@ export async function GET(request: NextRequest) {
           skipped: rssResults.skipped + newsApiResults.skipped + twitterResults.skipped,
           errors: rssResults.errors + newsApiResults.errors + twitterResults.errors,
         },
+        sources: [
+          ...(rssResults.sources || []),
+          { name: 'NewsAPI', ingested: newsApiResults.ingested, skipped: newsApiResults.skipped, errors: newsApiResults.errors },
+          { name: 'Twitter', ingested: twitterResults.ingested, skipped: twitterResults.skipped, errors: twitterResults.errors }
+        ]
       },
       timestamp: new Date().toISOString(),
     });

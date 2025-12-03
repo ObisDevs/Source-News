@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateAICompletion } from '@/lib/ai/orchestrator';
+import { generateStoryAI } from '@/lib/ai/orchestrator';
 import { supabaseAdmin } from '@/lib/supabase/client';
 
 const PROMPTS: Record<string, (title: string, content: string) => string> = {
@@ -52,7 +52,7 @@ export async function POST(
     }
 
     const prompt = PROMPTS[feature](title, content);
-    const result = await generateAICompletion(prompt);
+    const result = await generateStoryAI(prompt);
 
     await supabaseAdmin.from('ai_explanations').insert({
       story_id: id,
