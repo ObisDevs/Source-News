@@ -64,16 +64,25 @@ export default function IngestionMonitor() {
       const data = await response.json();
 
       if (data.success) {
-        setLogs(prev => [
-          ...prev,
-          `✓ Ingested: ${data.results.total.ingested}`,
-          `⊘ Skipped: ${data.results.total.skipped}`,
-          `✗ Errors: ${data.results.total.errors}`,
-          'Ingestion complete!',
-        ]);
+        const logLines = [
+          `✓ Total Ingested: ${data.results.total.ingested}`,
+          `⊘ Total Skipped: ${data.results.total.skipped}`,
+          `✗ Total Errors: ${data.results.total.errors}`,
+          '',
+          '📊 Source Breakdown:'
+        ];
+        
+        if (data.results.sources) {
+          data.results.sources.forEach((source: any) => {
+            logLines.push(`  ${source.name}: ✓${source.ingested} ⊘${source.skipped} ✗${source.errors}`);
+          });
+        }
+        
+        logLines.push('', 'Ingestion complete!');
+        setLogs(logLines);
         fetchStats();
       } else {
-        setLogs(prev => [...prev, `Error: ${data.error}`]);
+        setLogs(['Error: ' + data.error]);
       }
     } catch (error) {
       setLogs(prev => [...prev, `Error: ${error}`]);

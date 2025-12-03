@@ -13,7 +13,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const results = { ingested: 0, embeddings: 0, summaries: 0, entities: 0 };
+  const results = { 
+    ingested: 0, 
+    embeddings: 0, 
+    summaries: 0, 
+    entities: 0,
+    sources: [] as any[]
+  };
 
   try {
     console.log('🚀 Starting full orchestration...');
@@ -26,6 +32,11 @@ export async function POST(request: NextRequest) {
       ingestTwitterTrends(),
     ]);
     results.ingested = rssResults.ingested + newsApiResults.ingested + twitterResults.ingested;
+    results.sources = [
+      ...(rssResults.sources || []),
+      { name: 'NewsAPI', ingested: newsApiResults.ingested, skipped: newsApiResults.skipped, errors: newsApiResults.errors },
+      { name: 'Twitter Trends', ingested: twitterResults.ingested, skipped: twitterResults.skipped, errors: twitterResults.errors }
+    ];
     console.log(`✓ Ingestion complete: ${results.ingested} new stories`);
 
     // Step 2: Generate embeddings for new stories

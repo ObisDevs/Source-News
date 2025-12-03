@@ -284,10 +284,9 @@ Answer now:`;
         } : undefined,
       });
     } catch (geminiError) {
-      console.error('Gemini error, using OpenAI:', geminiError);
+      console.error('Gemini error, trying fallbacks:', geminiError);
 
       const personalityPrompt = getPersonalityPrompt(personality, customPersonality?.prompt);
-      
       const systemIdentity = `You are Source AI, the AI News Analyst for Source-News.
 
 ${personalityPrompt}
@@ -296,29 +295,66 @@ You have access to real-time news database, Twitter sentiment, and multi-source 
 
 STAY IN CHARACTER. Never break character.`;
 
-      const completion = await openai.chat.completions.create({
-        model: 'gpt-4-turbo-preview',
-        messages: [
-          { role: 'system', content: `${systemIdentity}\n\nYou have full database access to ${combinedStories.length} stories.` },
-          { role: 'user', content: `${storiesContext}\n\nUser: ${message}` },
-        ],
-        max_tokens: deepThinking ? 500 : 250,
-      });
+      try {
+        const completion = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: `${systemIdentity}\n\nYou have full database access to ${combinedStories.length} stories.` },
+            { role: 'user', content: `${storiesContext}\n\nUser: ${message}` },
+          ],
+          max_tokens: deepThinking ? 500 : 250,
+        });
 
-      const responseText = completion.choices[0].message.content || '';
-      const mentionedStory = combinedStories.find((s: any) => 
-        responseText.toLowerCase().includes(s.title.toLowerCase().substring(0, 20))
-      );
+        const responseText = completion.choices[0].message.content || '';
+        const mentionedStory = combinedStories.find((s: any) => 
+          responseText.toLowerCase().includes(s.title.toLowerCase().substring(0, 20))
+        );
 
-      return NextResponse.json({ 
-        response: responseText,
-        referencedStory: mentionedStory ? {
-          id: mentionedStory.id,
-          title: mentionedStory.title,
-          image: mentionedStory.metadata?.image || mentionedStory.metadata?.og_image,
-          url: mentionedStory.url,
-        } : undefined,
-      });
+        return NextResponse.json({ 
+          response: responseText,
+          referencedStory: mentionedStory ? {
+            id: mentionedStory.id,
+            title: mentionedStory.title,
+            image: mentionedStory.metadata?.image || mentionedStory.metadata?.og_image,
+            url: mentionedStory.url,
+          } : undefined,
+        });
+      } catch (openaiError) {
+        console.error('OpenAI error, trying Mistral:', openaiError);
+        
+        if (process.env.MISTRAL_API_KEY) {
+          const mistral = new OpenAI({ 
+            apiKey: process.env.MISTRAL_API_KEY,
+            baseURL: 'https://api.mistral.ai/v1'
+          });
+          
+          const mistralCompletion = await mistral.chat.completions.create({
+            model: 'mistral-small-latest',
+            messages: [
+              { role: 'system', content: `${systemIdentity}\n\nYou have full database access to ${combinedStories.length} stories.` },
+              { role: 'user', content: `${storiesContext}\n\nUser: ${message}` },
+            ],
+            max_tokens: deepThinking ? 500 : 250,
+          });
+
+          const responseText = mistralCompletion.choices[0].message.content || '';
+          const mentionedStory = combinedStories.find((s: any) => 
+            responseText.toLowerCase().includes(s.title.toLowerCase().substring(0, 20))
+          );
+
+          return NextResponse.json({ 
+            response: responseText,
+            referencedStory: mentionedStory ? {
+              id: mentionedStory.id,
+              title: mentionedStory.title,
+              image: mentionedStory.metadata?.image || mentionedStory.metadata?.og_image,
+              url: mentionedStory.url,
+            } : undefined,
+          });
+        }
+        
+        throw openaiError;
+      }
     }
   } catch (error: any) {
     console.error('Chat error:', error);

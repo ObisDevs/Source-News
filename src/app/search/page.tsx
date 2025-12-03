@@ -1,48 +1,49 @@
-import { supabaseAdmin } from '@/lib/supabase/client';
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 
-export default async function SearchPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string; category?: string; sort?: string }>;
-}) {
-  const { q: query = '', category, sort = 'date' } = await searchParams;
+export default function SearchPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const query = searchParams.get('q') || '';
+  const category = searchParams.get('category') || 'All';
+  const sort = searchParams.get('sort') || 'date';
   
-  let stories: any[] = [];
-  
-  if (query) {
-    let dbQuery = supabaseAdmin
-      .from('stories_raw')
-      .select(`
-        id,
-        title,
-        content,
-        url,
-        published_at,
-        metadata,
-        category,
-        sources (name, bias_lean)
-      `)
-      .or(`title.ilike.%${query}%,content.ilike.%${query}%`);
-    
-    if (category && category !== 'All') {
-      dbQuery = dbQuery.eq('category', category);
+  const [stories, setStories] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!query) {
+      setStories([]);
+      setLoading(false);
+      return;
     }
-    
-    if (sort === 'date') {
-      dbQuery = dbQuery.order('published_at', { ascending: false });
-    } else if (sort === 'source') {
-      dbQuery = dbQuery.order('source_id', { ascending: true });
-    }
-    
-    dbQuery = dbQuery.limit(50);
-    
-    const { data } = await dbQuery;
-    stories = data || [];
-  }
+
+    setLoading(true);
+    fetch(`/api/search/results?q=${encodeURIComponent(query)}`)
+      .then(res => res.json())
+      .then(data => {
+        console.log('Search results:', data);
+        setStories(data.stories || []);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('Search error:', err);
+        setStories([]);
+        setLoading(false);
+      });
+  }, [query, category, sort]);
 
   const categories = ['All', 'Politics', 'Business', 'Sports', 'Technology', 'Entertainment', 'Health', 'General'];
+
+  const updateParams = (key: string, value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set(key, value);
+    router.push(`/search?${params.toString()}`);
+  };
 
   return (
     <main className="min-h-screen bg-white dark:bg-black">
@@ -56,28 +57,30 @@ export default async function SearchPage({
           </svg>
           Back to Home
         </Link>
-        <h1 className="text-4xl font-bold mb-2 text-gray-900 dark:text-gray-100">Search Results</h1>
-        <p className="text-gray-600 dark:text-gray-400 mb-6">
-          {query ? `Found ${stories.length} results for "${query}"` : 'Enter a search query'}
-        </p>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-gray-100">Search Results</h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            {loading ? 'Searching...' : query ? `${stories.length} results for "${query}"` : 'Enter a search query'}
+          </p>
+        </div>
 
         {query && (
           <div className="mb-6 flex flex-wrap gap-4">
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Category:</label>
-              <div className="flex gap-1">
+              <div className="flex flex-wrap gap-1">
                 {categories.map(cat => (
-                  <Link
+                  <button
                     key={cat}
-                    href={`/search?q=${query}&category=${cat}&sort=${sort}`}
+                    onClick={() => updateParams('category', cat)}
                     className={`px-3 py-1 text-xs rounded transition ${
-                      (category || 'All') === cat
+                      category === cat
                         ? 'bg-blue-600 text-white'
                         : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                     }`}
                   >
                     {cat}
-                  </Link>
+                  </button>
                 ))}
               </div>
             </div>
@@ -86,7 +89,7 @@ export default async function SearchPage({
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Sort:</label>
               <select
                 value={sort}
-                onChange={(e) => window.location.href = `/search?q=${query}&category=${category || 'All'}&sort=${e.target.value}`}
+                onChange={(e) => updateParams('sort', e.target.value)}
                 className="px-3 py-1 text-xs rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
               >
                 <option value="date">Latest First</option>
@@ -96,7 +99,12 @@ export default async function SearchPage({
           </div>
         )}
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {stories.map((story) => {
             const imageUrl = story.metadata?.image || story.metadata?.og_image || story.metadata?.urlToImage;
             return (
@@ -136,9 +144,10 @@ export default async function SearchPage({
               </Link>
             );
           })}
-        </div>
+          </div>
+        )}
 
-        {query && stories.length === 0 && (
+        {!loading && query && stories.length === 0 && (
           <p className="text-center text-gray-500 mt-12">
             No stories found. Try a different search term.
           </p>

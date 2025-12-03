@@ -4,26 +4,22 @@ import { generateFingerprint, normalizeURL } from '@/lib/utils/fingerprint';
 import { extractImageFromURL } from '@/lib/utils/image-extractor';
 
 interface RSSSource {
+  id: string;
   name: string;
   url: string;
   bias: string;
 }
 
-const RSS_SOURCES: RSSSource[] = [
-  { name: 'Vanguard', url: 'https://www.vanguardngr.com/feed/', bias: 'centre' },
-  { name: 'Channels TV', url: 'https://www.channelstv.com/feed/', bias: 'centre' },
-  { name: 'Techpoint Africa', url: 'https://techpoint.africa/feed/', bias: 'centre' },
-  { name: 'Nairametrics', url: 'https://nairametrics.com/feed/', bias: 'centre' },
-  { name: 'The Guardian NG', url: 'https://guardian.ng/feed/', bias: 'centre' },
-  { name: 'Daily Trust', url: 'https://dailytrust.com/feed/', bias: 'centre' },
-  { name: 'BusinessDay', url: 'https://businessday.ng/feed/', bias: 'centre' },
-  { name: 'This Day', url: 'https://www.thisdaylive.com/index.php/feed/', bias: 'centre' },
-];
-
 interface IngestResult {
   ingested: number;
   skipped: number;
   errors: number;
+  sources?: Array<{
+    name: string;
+    ingested: number;
+    skipped: number;
+    errors: number;
+  }>;
 }
 
 function categorizeByKeywords(title: string, content: string): string {
@@ -54,35 +50,39 @@ function categorizeByKeywords(title: string, content: string): string {
 
 export async function ingestRSSFeeds(): Promise<IngestResult> {
   const parser = new Parser();
-  const results: IngestResult = { ingested: 0, skipped: 0, errors: 0 };
+  const results: IngestResult = { ingested: 0, skipped: 0, errors: 0, sources: [] };
   
   console.log('\n=== RSS Feed Ingestion Started ===');
   console.log(`Timestamp: ${new Date().toISOString()}`);
-  console.log(`📡 Processing ${RSS_SOURCES.length} RSS sources\n`);
+  
+  // Fetch active RSS sources from database
+  const { data: rssSources, error: sourcesError } = await supabaseAdmin
+    .from('sources')
+    .select('id, name, rss_url, bias_lean')
+    .eq('type', 'rss')
+    .eq('is_active', true);
 
-  for (const source of RSS_SOURCES) {
+  if (sourcesError || !rssSources || rssSources.length === 0) {
+    console.error('❌ Failed to fetch RSS sources from database:', sourcesError);
+    return results;
+  }
+
+  console.log(`📡 Processing ${rssSources.length} RSS sources\n`);
+
+  for (const dbSource of rssSources) {
+    if (!dbSource.rss_url) {
+      console.log(`\n⚠️  ${dbSource.name}: No RSS URL configured, skipping`);
+      continue;
+    }
+
+    const source: RSSSource = {
+      id: dbSource.id,
+      name: dbSource.name,
+      url: dbSource.rss_url,
+      bias: dbSource.bias_lean || 'centre'
+    };
     console.log(`\n📰 Source: ${source.name}`);
     try {
-      console.log(`   🔍 Checking database for source...`);
-      // Get source ID from database
-      const { data: sourceData, error: sourceError } = await supabaseAdmin
-        .from('sources')
-        .select('id')
-        .eq('name', source.name)
-        .single();
-
-      if (sourceError) {
-        console.error(`   ❌ Database error: ${sourceError.message}`);
-        results.errors++;
-        continue;
-      }
-
-      if (!sourceData) {
-        console.warn(`   ⚠️  Source not found in database`);
-        results.errors++;
-        continue;
-      }
-
       console.log(`   🌐 Fetching RSS feed from ${source.url}...`);
       const feed = await parser.parseURL(source.url);
       console.log(`   ✅ Retrieved ${feed.items.length} items`);
@@ -141,7 +141,7 @@ export async function ingestRSSFeeds(): Promise<IngestResult> {
             canonical_url: canonicalUrl,
             fingerprint,
             published_at: item.pubDate || new Date().toISOString(),
-            source_id: sourceData.id,
+            source_id: source.id,
             category,
             metadata: {
               source: source.name,
@@ -174,6 +174,13 @@ export async function ingestRSSFeeds(): Promise<IngestResult> {
       console.log(`      ✅ Ingested: ${sourceIngested}`);
       console.log(`      ⏭️  Skipped: ${sourceSkipped}`);
       console.log(`      ❌ Errors: ${sourceErrors}`);
+      
+      results.sources!.push({
+        name: source.name,
+        ingested: sourceIngested,
+        skipped: sourceSkipped,
+        errors: sourceErrors
+      });
     } catch (feedError) {
       results.errors++;
       console.error(`   ❌ Feed fetch failed: ${feedError}`);
