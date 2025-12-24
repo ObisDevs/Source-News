@@ -43,6 +43,11 @@ export function AIChatWidget() {
   const [showCustomModal, setShowCustomModal] = useState(false);
   const [showPersonalitySwitch, setShowPersonalitySwitch] = useState(false);
   const [expandedThinking, setExpandedThinking] = useState<string | null>(null);
+  const [showScrollToTop, setShowScrollToTop] = useState(false);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const [hasUnreadMessage, setHasUnreadMessage] = useState(false);
+  const [lastMessageId, setLastMessageId] = useState<string | null>(null);
+  const lastMessageRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -62,7 +67,15 @@ export function AIChatWidget() {
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const element = e.currentTarget;
     const isAtBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 50;
+    const isAtTop = element.scrollTop < 50;
+    
     setUserScrolled(!isAtBottom);
+    setShowScrollToBottom(isAtTop && messages.length > 0);
+    setShowScrollToTop(!isAtBottom && messages.length > 0);
+    
+    if (isAtBottom) {
+      setHasUnreadMessage(false);
+    }
   };
 
   useEffect(() => {
@@ -229,6 +242,11 @@ export function AIChatWidget() {
           ...prev.filter(s => s.id !== data.referencedStory.id),
           { ...data.referencedStory, messageId: assistantMessageId }
         ]);
+      }
+      
+      setLastMessageId(assistantMessageId);
+      if (userScrolled) {
+        setHasUnreadMessage(true);
       }
     } catch (error) {
       console.error('Chat error:', error);
@@ -526,6 +544,7 @@ export function AIChatWidget() {
                 {messages.map((message, index) => (
                   <motion.div
                     key={message.id}
+                    ref={message.id === lastMessageId ? lastMessageRef : null}
                     initial={{ opacity: 0, y: 20, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     transition={{ delay: index * 0.1 }}
@@ -648,6 +667,45 @@ export function AIChatWidget() {
                 <div ref={messagesEndRef} />
               </div>
 
+              {/* Scroll to Top Button */}
+              <AnimatePresence>
+                {showScrollToTop && (
+                  <motion.button
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    onClick={() => lastMessageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-gray-400 hover:bg-gray-500 text-white shadow-lg flex items-center justify-center z-10 transition-colors"
+                    title="Scroll to last response"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                    </svg>
+                  </motion.button>
+                )}
+              </AnimatePresence>
+
+              {/* Scroll to Bottom Button */}
+              <AnimatePresence>
+                {showScrollToBottom && (
+                  <motion.button
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })}
+                    className="absolute bottom-4 left-1/2 -translate-x-1/2 w-10 h-10 rounded-full bg-gray-400 hover:bg-gray-500 text-white shadow-lg flex items-center justify-center z-10 transition-colors"
+                    title="Scroll to bottom"
+                  >
+                    {hasUnreadMessage && (
+                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
+                    )}
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </motion.button>
+                )}
+              </AnimatePresence>
+
               <div className="p-4 pb-8 border-t-4 border-gray-700 bg-white dark:bg-gray-950 rounded-b-[2.5rem]">
                 {attachedStory && (
                   <div className="mb-2 flex items-center gap-2 p-2 bg-gray-100 dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-700 rounded-lg">
@@ -678,7 +736,7 @@ export function AIChatWidget() {
                   <div className="flex items-center justify-center gap-4">
                     <button 
                       onClick={() => setDeepThinking(!deepThinking)}
-                      className={`p-2 rounded-lg transition-colors ${deepThinking ? 'bg-gray-600 text-white' : 'bg-gray-200 dark:bg-gray-800'} hover:bg-gray-700 hover:text-white group relative`}
+                      className={`p-2 rounded-lg transition-colors ${deepThinking ? 'bg-pink-600 text-white' : 'bg-gray-200 dark:bg-gray-800'} hover:bg-pink-700 hover:text-white group relative`}
                     >
                       {deepThinking ? <Brain className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
                       <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
