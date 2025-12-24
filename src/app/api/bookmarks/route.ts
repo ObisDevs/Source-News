@@ -71,6 +71,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    await supabase.rpc('increment_user_usage', {
+      p_user_id: user.id,
+      p_date: today,
+      p_field: 'bookmarks_added'
+    });
+  } catch (e) {
+    console.log('Usage tracking failed:', e);
+  }
+
   return NextResponse.json({ success: true });
 }
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { tools, executeTool } from '@/lib/ai/tools';
 import { getPersonalityPrompt } from '@/lib/ai/personalities';
 
@@ -292,13 +293,36 @@ Answer now:`;
         responseText.toLowerCase().includes(s.title.toLowerCase().substring(0, 20))
       );
 
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+
       try {
         await supabaseAdmin.from('ai_interactions').insert({
+          user_id: user?.id || null,
           query: message,
           response: responseText,
           stories_referenced: mentionedStory ? [mentionedStory.id] : [],
           personality,
         });
+
+        if (user?.id) {
+          try {
+            const today = new Date().toISOString().split('T')[0];
+            await supabaseAdmin.rpc('increment_user_usage', {
+              p_user_id: user.id,
+              p_date: today,
+              p_field: 'ai_explanations_used'
+            });
+          } catch (rpcError) {
+            await supabaseAdmin.from('user_usage').upsert({
+              user_id: user.id,
+              date: today,
+              ai_explanations_used: 1,
+              bias_checks_used: 0,
+              searches_performed: 0
+            }, { onConflict: 'user_id,date' });
+          }
+        }
       } catch (e) {
         console.log('AI interactions logging not available yet');
       }
