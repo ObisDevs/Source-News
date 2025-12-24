@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { analytics } from '@/lib/analytics/tracker';
 
 interface QuickReactionsProps {
   storyId: string;
@@ -71,6 +72,7 @@ export function QuickReactions({ storyId }: QuickReactionsProps) {
       await supabase
         .from('story_reactions')
         .insert({ story_id: storyId, user_id: user.id, reaction_type: reactionType });
+      analytics.reaction(storyId, reactionType);
     }
 
     await fetchVotes();
