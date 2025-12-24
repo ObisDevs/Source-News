@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from './auth/auth-provider';
+import { analytics } from '@/lib/analytics/tracker';
 
 export function BookmarkButton({ storyId }: { storyId: string }) {
   const { user } = useAuth();
@@ -48,6 +49,7 @@ export function BookmarkButton({ storyId }: { storyId: string }) {
 
       if (response.ok) {
         setBookmarked(!bookmarked);
+        analytics.bookmark(storyId, bookmarked ? 'remove' : 'add');
       } else {
         console.error('Bookmark failed:', response.status);
       }

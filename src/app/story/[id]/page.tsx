@@ -13,6 +13,7 @@ import { StoryTimeline } from '@/components/story-timeline';
 import { StoryComparison } from '@/components/story-comparison';
 import { QuickReactions } from '@/components/quick-reactions';
 import { TrackReading } from '@/components/track-reading';
+import { StoryViewTracker } from '@/components/story-view-tracker';
 import Link from 'next/link';
 import * as cheerio from 'cheerio';
 import { Metadata } from 'next';
@@ -124,6 +125,7 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <TrackReading storyId={story.id} />
+      <StoryViewTracker storyId={story.id} />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <Link
           href="/"

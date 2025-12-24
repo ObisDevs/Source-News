@@ -202,6 +202,13 @@ export default function AdminDashboard() {
               <div className="text-red-100">Generate summaries and extract entities</div>
             </div>
           </Link>
+
+          <Link href="/admin/analytics" className="group">
+            <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg p-6 text-white hover:shadow-xl transition-all">
+              <div className="text-2xl font-bold mb-2">Analytics</div>
+              <div className="text-orange-100">View user behavior and site metrics</div>
+            </div>
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

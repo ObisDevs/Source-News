@@ -6,6 +6,7 @@ import { AIHeadlineSummary } from '@/components/ai-headline-summary';
 import { StoryImage } from '@/components/story-image';
 import { LoadMoreButton } from '@/components/load-more-button';
 import { AIChatWidget } from '@/components/ai-chat-widget';
+import { PageViewTracker } from '@/components/page-view-tracker';
 
 export const revalidate = 0;
 export const dynamic = 'force-dynamic';
@@ -137,6 +138,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      <PageViewTracker page="home" category={category} />
       <AIChatWidget />
       {featuredStories.length > 0 && <NewsCarousel stories={featuredStories} />}
       
