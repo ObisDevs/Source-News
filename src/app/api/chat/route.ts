@@ -148,12 +148,18 @@ DO NOT say you don't have access - the story is RIGHT ABOVE.
       const reactions = reactionsData?.filter(r => r.story_id === s.id);
       const storyComments = commentsData?.filter(c => c.story_id === s.id);
       const aiAnalysis = aiExplanations?.find(e => e.story_id === s.id);
+      
+      const publishedDate = new Date(s.published_at);
+      const now = new Date();
+      const hoursAgo = Math.floor((now.getTime() - publishedDate.getTime()) / (1000 * 60 * 60));
+      const daysAgo = Math.floor(hoursAgo / 24);
+      const timeAgo = daysAgo > 0 ? `${daysAgo} day${daysAgo > 1 ? 's' : ''} ago` : `${hoursAgo} hour${hoursAgo > 1 ? 's' : ''} ago`;
 
       return `
 STORY: ${s.title}
 SOURCE: ${s.sources?.name} (${s.sources?.bias_lean}, credibility: ${s.sources?.credibility_score}/100)
 CATEGORY: ${s.category || 'General'}
-PUBLISHED: ${new Date(s.published_at).toLocaleString()}
+PUBLISHED: ${publishedDate.toLocaleString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' })} (${timeAgo})
 URL: ${s.url}
 FULL CONTENT: ${s.content || 'No content'}
 
@@ -203,6 +209,27 @@ FAST MODE - Quick analysis:
       
       const personalityPrompt = getPersonalityPrompt(personality, customPersonality?.prompt);
       
+      const currentDateTime = new Date();
+      const dateTimeContext = `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⏰ CURRENT DATE & TIME AWARENESS ⏰
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CURRENT DATE: ${currentDateTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+CURRENT TIME: ${currentDateTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}
+TIMEZONE: ${Intl.DateTimeFormat().resolvedOptions().timeZone}
+DAY OF WEEK: ${currentDateTime.toLocaleDateString('en-US', { weekday: 'long' })}
+
+IMPORTANT:
+- You are FULLY AWARE of the current date and time
+- When users ask "today", "yesterday", "this week", you know exactly what that means
+- All story publication dates are provided with "X hours/days ago" for context
+- You can calculate time differences and understand recency
+- When discussing events, always consider their temporal context
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+`;
+      
       const systemIdentity = `You are Source AI, the AI News Analyst for Source-News - Nigeria's premier news intelligence platform.
 
 ${personalityPrompt}
@@ -212,10 +239,13 @@ YOUR CAPABILITIES:
 - Twitter sentiment analysis and public opinion tracking
 - Multi-source fact-checking and bias detection
 - Deep contextual understanding of Nigerian affairs
+- FULL DATE/TIME AWARENESS - You know the current date and time
 
 ALWAYS STAY IN CHARACTER. Never break character or mention you're an AI.`;
 
       const prompt = `${systemIdentity}
+
+${dateTimeContext}
 
 You are Source-News AI Assistant with COMPLETE DATABASE ACCESS.
 
@@ -287,9 +317,14 @@ Answer now:`;
       console.error('Gemini error, trying fallbacks:', geminiError);
 
       const personalityPrompt = getPersonalityPrompt(personality, customPersonality?.prompt);
+      const currentDateTime = new Date();
+      const dateTimeContext = `Current Date: ${currentDateTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} at ${currentDateTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric' })}. You are fully time-aware.`;
+      
       const systemIdentity = `You are Source AI, the AI News Analyst for Source-News.
 
 ${personalityPrompt}
+
+${dateTimeContext}
 
 You have access to real-time news database, Twitter sentiment, and multi-source verification.
 
